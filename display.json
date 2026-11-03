@@ -1,0 +1,8 @@
+{
+  "name": "Audio & Video Patch Panel Designer",
+  "icon": "🔀",
+  "group": "Design",
+  "subGroup": "Hardware & Devices",
+  "description": "Audio & Video Patch Panel Designer: configure Bantam/TT audio patchbays, 3G/12G-SDI video panels, and Cat6A feedthroughs; manage Full Normal, Half Normal, and Isolated jack normalling; generate designation label strips and channel run schedules.",
+  "app": "APK:Softapps/EDITORS/EDITORS.PatchPanel/index.html"
+}

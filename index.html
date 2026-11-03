@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio & Video Patch Panel Designer — APK.audio</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div style="display:flex; align-items:center; gap:12px; font-weight:600;">
+      <span>🔀</span>
+      <span>Patch Panel Designer</span>
+      <span style="font-size:0.75rem; background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:12px;">Bantam / TT · 48-Point</span>
+    </div>
+    <button class="primary" id="btn-export">Export Designation Strip</button>
+  </header>
+
+  <div class="main-area">
+    <div class="panel-viewport">
+      <div class="patchbay-frame">
+        <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:0.85rem; font-weight:600; color:#f1f5f9;">
+          <span>AUDIO PATCHBAY · PB-01 (1U 48-POINT)</span>
+          <span style="color:#38bdf8; font-size:0.8rem;">MIL-SPEC BANTAM JACKS</span>
+        </div>
+
+        <div class="label-strip" id="top-strip"></div>
+        <div class="jack-row" id="top-row"></div>
+        <div style="height:12px; display:flex; align-items:center; justify-content:center;">
+          <div style="height:2px; width:100%; background:#2d3748;"></div>
+        </div>
+        <div class="jack-row" id="bottom-row"></div>
+        <div class="label-strip" id="bottom-strip"></div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <h3 style="font-size:0.8rem; color:#94a3b8; text-transform:uppercase; margin-bottom:16px;">Channel Normalling</h3>
+      <div id="inspector" style="font-size:0.85rem; color:#64748b;">Click a jack pair to adjust routing and designation labels.</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { PatchPanelModel } from './js/patchApp.js';
+
+    const model = new PatchPanelModel(24);
+    const topStrip = document.getElementById('top-strip');
+    const bottomStrip = document.getElementById('bottom-strip');
+    const topRow = document.getElementById('top-row');
+    const bottomRow = document.getElementById('bottom-row');
+    const inspector = document.getElementById('inspector');
+    let selectedCh = 1;
+
+    function renderBay() {
+      topStrip.innerHTML = '';
+      bottomStrip.innerHTML = '';
+      topRow.innerHTML = '';
+      bottomRow.innerHTML = '';
+
+      model.pairs.forEach(p => {
+        // Strips
+        const tLabel = document.createElement('div');
+        tLabel.textContent = p.topLabel;
+        topStrip.appendChild(tLabel);
+
+        const bLabel = document.createElement('div');
+        bLabel.textContent = p.bottomLabel;
+        bottomStrip.appendChild(bLabel);
+
+        // Top Jack
+        const tJack = document.createElement('div');
+        tJack.className = `jack-cell ${selectedCh === p.channel ? 'selected' : ''}`;
+        tJack.innerHTML = `<div class="jack-hole"></div>`;
+        tJack.addEventListener('click', () => { selectedCh = p.channel; renderBay(); renderInspector(); });
+        topRow.appendChild(tJack);
+
+        // Bottom Jack
+        const bJack = document.createElement('div');
+        bJack.className = `jack-cell ${selectedCh === p.channel ? 'selected' : ''}`;
+        bJack.innerHTML = `<div class="jack-hole"></div>`;
+        bJack.addEventListener('click', () => { selectedCh = p.channel; renderBay(); renderInspector(); });
+        bottomRow.appendChild(bJack);
+      });
+    }
+
+    function renderInspector() {
+      const p = model.pairs.find(x => x.channel === selectedCh);
+      if (!p) return;
+      inspector.innerHTML = `
+        <div style="margin-bottom:14px;">
+          <label style="font-size:0.75rem; color:#94a3b8; display:block;">Pair Channel</label>
+          <div style="font-weight:700; color:#f1f5f9;">Channel ${p.channel}</div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:0.75rem; color:#94a3b8; display:block;">Top Jack Designation</label>
+          <input type="text" id="inp-top" value="${p.topLabel}" style="width:100%; background:#202734; border:1px solid #2b3548; color:#fff; padding:6px; border-radius:4px;" />
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:0.75rem; color:#94a3b8; display:block;">Bottom Jack Designation</label>
+          <input type="text" id="inp-bot" value="${p.bottomLabel}" style="width:100%; background:#202734; border:1px solid #2b3548; color:#fff; padding:6px; border-radius:4px;" />
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:0.75rem; color:#94a3b8; display:block;">Normalling Configuration</label>
+          <select id="sel-norm" style="width:100%; background:#202734; border:1px solid #2b3548; color:#fff; padding:6px; border-radius:4px;">
+            <option value="half-normal" ${p.normalMode === 'half-normal' ? 'selected' : ''}>Half Normal (Tap top jack)</option>
+            <option value="full-normal" ${p.normalMode === 'full-normal' ? 'selected' : ''}>Full Normal (Breaks both)</option>
+            <option value="isolated" ${p.normalMode === 'isolated' ? 'selected' : ''}>Isolated / De-Normalled</option>
+          </select>
+        </div>
+      `;
+
+      document.getElementById('inp-top').addEventListener('input', (e) => {
+        model.setLabels(p.channel, e.target.value, undefined);
+        renderBay();
+      });
+      document.getElementById('inp-bot').addEventListener('input', (e) => {
+        model.setLabels(p.channel, undefined, e.target.value);
+        renderBay();
+      });
+      document.getElementById('sel-norm').addEventListener('change', (e) => {
+        model.setNormalling(p.channel, e.target.value);
+      });
+    }
+
+    document.getElementById('btn-export').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(model, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'patchbay-PB01-schedule.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    renderBay();
+    renderInspector();
+  </script>
+</body>
+</html>

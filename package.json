@@ -1,0 +1,20 @@
+{
+  "name": "patch-panel-designer",
+  "version": "1.0.0",
+  "description": "Audio & Video Patch Panel Designer on APK.audio",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "keywords": [
+    "audio",
+    "video",
+    "patchbay",
+    "normalling",
+    "bantam",
+    "xlr",
+    "cat6"
+  ],
+  "author": "Anthony Kuzub",
+  "license": "MIT"
+}
