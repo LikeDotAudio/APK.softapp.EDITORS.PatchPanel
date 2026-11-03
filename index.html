@@ -3,137 +3,232 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audio & Video Patch Panel Designer — APK.audio</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Audio & Video Patch Panel Designer · Standalone Block Editor</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <style>
+    .patchbay-container {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      height: calc(100vh - 40px);
+      overflow: hidden;
+    }
+
+    .patchbay-header-bar {
+      background: var(--osc-bg-surface);
+      border-bottom: 1px solid var(--osc-border-default);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .form-group-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group-inline label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--osc-text-muted);
+      text-transform: uppercase;
+    }
+
+    .visual-patchbay-stage {
+      padding: 16px;
+      background: radial-gradient(circle at 50% 50%, #151F38 0%, #080C16 100%);
+      border-bottom: 1px solid var(--osc-border-default);
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+
+    .patchbay-chassis {
+      background: #0A0F1D;
+      border: 1px solid var(--osc-border-light);
+      border-radius: 4px;
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      min-width: 800px;
+    }
+
+    .strip-row {
+      display: flex;
+      gap: 2px;
+      background: #080C16;
+      border: 1px solid var(--osc-border-default);
+      border-radius: 2px;
+    }
+
+    .jacks-row {
+      display: flex;
+      gap: 2px;
+      margin: 2px 0;
+    }
+
+    .divider-normalling-line {
+      height: 4px;
+      background: #161F36;
+      border-radius: 2px;
+      margin: 1px 0;
+    }
+
+    .data-grid-panel {
+      background: var(--osc-bg-surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .data-grid-header {
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--osc-border-default);
+      background: var(--osc-bg-surface-hover);
+    }
+
+    .data-table-container {
+      flex: 1;
+      overflow: auto;
+    }
+
+    table.patch-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    table.patch-table th {
+      position: sticky;
+      top: 0;
+      background: var(--osc-bg-input);
+      color: var(--osc-text-muted);
+      padding: 6px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--osc-border-default);
+      font-weight: 600;
+      z-index: 2;
+    }
+
+    table.patch-table td {
+      padding: 2px 4px;
+      border-bottom: 1px solid var(--osc-border-default);
+    }
+
+    .cell-input {
+      width: 100%;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--osc-text-primary);
+      padding: 4px 6px;
+      font-size: 11px;
+      border-radius: 2px;
+      font-family: inherit;
+    }
+
+    .cell-input:focus {
+      background: var(--osc-bg-input);
+      border-color: var(--osc-accent-primary);
+      outline: none;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .col-idx {
+      width: 45px;
+    }
+  </style>
 </head>
-<body>
-  <header>
-    <div style="display:flex; align-items:center; gap:12px; font-weight:600;">
-      <span>🔀</span>
-      <span>Patch Panel Designer</span>
-      <span style="font-size:0.75rem; background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:12px;">Bantam / TT · 48-Point</span>
+<body class="theme-deep-horizon">
+  <header class="app-window-header">
+    <div class="window-title-group">
+      <span class="window-dot"></span>
+      <span class="window-title">Audio & Video Patch Panel Designer</span>
+      <span class="window-pill" id="block-tag">STANDALONE BLOCK EDITOR</span>
     </div>
-    <button class="primary" id="btn-export">Export Designation Strip</button>
+    <div class="window-actions">
+      <button class="btn btn-secondary" id="btn-sync-discovered" title="Load live patchbay from Discovered Project">
+        <span class="btn-icon">⚡</span> Discovered
+      </button>
+      <button class="btn btn-secondary" id="btn-open" title="Open block JSON">
+        <span class="btn-icon">📂</span> Open
+      </button>
+      <button class="btn btn-primary" id="btn-save" title="Save & Return modified block to caller">
+        <span class="btn-icon">💾</span> Save & Return
+      </button>
+      <button class="btn btn-icon" id="btn-close" title="Close Editor">✕</button>
+    </div>
   </header>
 
-  <div class="main-area">
-    <div class="panel-viewport">
-      <div class="patchbay-frame">
-        <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:0.85rem; font-weight:600; color:#f1f5f9;">
-          <span>AUDIO PATCHBAY · PB-01 (1U 48-POINT)</span>
-          <span style="color:#38bdf8; font-size:0.8rem;">MIL-SPEC BANTAM JACKS</span>
+  <div class="patchbay-container">
+    <div class="patchbay-header-bar">
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div class="form-group-inline">
+          <label for="input-bay-name">Bay Tag / Identifier:</label>
+          <input type="text" id="input-bay-name" class="input" style="width:180px;" value="AUDIO-PB01">
         </div>
-
-        <div class="label-strip" id="top-strip"></div>
-        <div class="jack-row" id="top-row"></div>
-        <div style="height:12px; display:flex; align-items:center; justify-content:center;">
-          <div style="height:2px; width:100%; background:#2d3748;"></div>
+        <div class="form-group-inline">
+          <label for="select-density">Jack Pairs:</label>
+          <select id="select-density" class="input" style="width:140px;">
+            <option value="16">16 Pairs (32 Jacks)</option>
+            <option value="24" selected>24 Pairs (48 Jacks)</option>
+            <option value="48">48 Pairs (96 Jacks)</option>
+          </select>
         </div>
-        <div class="jack-row" id="bottom-row"></div>
-        <div class="label-strip" id="bottom-strip"></div>
+      </div>
+      <div>
+        <button class="btn btn-secondary btn-sm" onclick="window.print()">Print Strip</button>
       </div>
     </div>
 
-    <div class="sidebar">
-      <h3 style="font-size:0.8rem; color:#94a3b8; text-transform:uppercase; margin-bottom:16px;">Channel Normalling</h3>
-      <div id="inspector" style="font-size:0.85rem; color:#64748b;">Click a jack pair to adjust routing and designation labels.</div>
+    <div class="visual-patchbay-stage">
+      <div class="patchbay-chassis">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1E2A45; padding-bottom:4px;">
+          <span style="font-size:10px; font-weight:bold; color:var(--osc-accent-primary);">MIL-SPEC TT / BANTAM DUAL-ROW PATCHBAY</span>
+          <span style="font-size:9px; color:var(--osc-text-muted);">TOP: OUTPUTS · BOTTOM: INPUTS</span>
+        </div>
+        <div class="strip-row" id="top-strip"></div>
+        <div class="jacks-row" id="top-row"></div>
+        <div class="divider-normalling-line"></div>
+        <div class="jacks-row" id="bottom-row"></div>
+        <div class="strip-row" id="bottom-strip"></div>
+      </div>
     </div>
+
+    <section class="data-grid-panel">
+      <div class="data-grid-header">
+        <span style="font-size:11px; font-weight:600; text-transform:uppercase; color:var(--osc-text-muted);">
+          Normalling & Circuit Schedule (Live Editable)
+        </span>
+      </div>
+      <div class="data-table-container">
+        <table class="patch-table">
+          <thead>
+            <tr>
+              <th class="col-idx text-center">Ch #</th>
+              <th>Top Row (Output / Source)</th>
+              <th>Top Endpoint</th>
+              <th>Bottom Row (Input / Destination)</th>
+              <th>Bottom Endpoint</th>
+              <th style="width:160px;">Normalling</th>
+            </tr>
+          </thead>
+          <tbody id="patch-table-body"></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
-  <script type="module">
-    import { PatchPanelModel } from './js/patchApp.js';
-
-    const model = new PatchPanelModel(24);
-    const topStrip = document.getElementById('top-strip');
-    const bottomStrip = document.getElementById('bottom-strip');
-    const topRow = document.getElementById('top-row');
-    const bottomRow = document.getElementById('bottom-row');
-    const inspector = document.getElementById('inspector');
-    let selectedCh = 1;
-
-    function renderBay() {
-      topStrip.innerHTML = '';
-      bottomStrip.innerHTML = '';
-      topRow.innerHTML = '';
-      bottomRow.innerHTML = '';
-
-      model.pairs.forEach(p => {
-        // Strips
-        const tLabel = document.createElement('div');
-        tLabel.textContent = p.topLabel;
-        topStrip.appendChild(tLabel);
-
-        const bLabel = document.createElement('div');
-        bLabel.textContent = p.bottomLabel;
-        bottomStrip.appendChild(bLabel);
-
-        // Top Jack
-        const tJack = document.createElement('div');
-        tJack.className = `jack-cell ${selectedCh === p.channel ? 'selected' : ''}`;
-        tJack.innerHTML = `<div class="jack-hole"></div>`;
-        tJack.addEventListener('click', () => { selectedCh = p.channel; renderBay(); renderInspector(); });
-        topRow.appendChild(tJack);
-
-        // Bottom Jack
-        const bJack = document.createElement('div');
-        bJack.className = `jack-cell ${selectedCh === p.channel ? 'selected' : ''}`;
-        bJack.innerHTML = `<div class="jack-hole"></div>`;
-        bJack.addEventListener('click', () => { selectedCh = p.channel; renderBay(); renderInspector(); });
-        bottomRow.appendChild(bJack);
-      });
-    }
-
-    function renderInspector() {
-      const p = model.pairs.find(x => x.channel === selectedCh);
-      if (!p) return;
-      inspector.innerHTML = `
-        <div style="margin-bottom:14px;">
-          <label style="font-size:0.75rem; color:#94a3b8; display:block;">Pair Channel</label>
-          <div style="font-weight:700; color:#f1f5f9;">Channel ${p.channel}</div>
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:0.75rem; color:#94a3b8; display:block;">Top Jack Designation</label>
-          <input type="text" id="inp-top" value="${p.topLabel}" style="width:100%; background:#202734; border:1px solid #2b3548; color:#fff; padding:6px; border-radius:4px;" />
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:0.75rem; color:#94a3b8; display:block;">Bottom Jack Designation</label>
-          <input type="text" id="inp-bot" value="${p.bottomLabel}" style="width:100%; background:#202734; border:1px solid #2b3548; color:#fff; padding:6px; border-radius:4px;" />
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:0.75rem; color:#94a3b8; display:block;">Normalling Configuration</label>
-          <select id="sel-norm" style="width:100%; background:#202734; border:1px solid #2b3548; color:#fff; padding:6px; border-radius:4px;">
-            <option value="half-normal" ${p.normalMode === 'half-normal' ? 'selected' : ''}>Half Normal (Tap top jack)</option>
-            <option value="full-normal" ${p.normalMode === 'full-normal' ? 'selected' : ''}>Full Normal (Breaks both)</option>
-            <option value="isolated" ${p.normalMode === 'isolated' ? 'selected' : ''}>Isolated / De-Normalled</option>
-          </select>
-        </div>
-      `;
-
-      document.getElementById('inp-top').addEventListener('input', (e) => {
-        model.setLabels(p.channel, e.target.value, undefined);
-        renderBay();
-      });
-      document.getElementById('inp-bot').addEventListener('input', (e) => {
-        model.setLabels(p.channel, undefined, e.target.value);
-        renderBay();
-      });
-      document.getElementById('sel-norm').addEventListener('change', (e) => {
-        model.setNormalling(p.channel, e.target.value);
-      });
-    }
-
-    document.getElementById('btn-export').addEventListener('click', () => {
-      const blob = new Blob([JSON.stringify(model, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'patchbay-PB01-schedule.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    renderBay();
-    renderInspector();
-  </script>
+  <script type="module" src="./js/patchApp.js"></script>
 </body>
 </html>
