@@ -113,12 +113,18 @@ export async function loadMasterCatalog(basePath = './data/vendors/') {
     try {
       const fs = await import('fs');
       const path = await import('path');
-      const fullPath = path.resolve(process.cwd(), 'PODS/POD.THIN/Softapps/EDITORS/EDITORS.PanelBuddy/data/vendors/index.json');
-      if (fs.existsSync(fullPath)) {
-        const raw = fs.readFileSync(fullPath, 'utf8');
-        const parsed = JSON.parse(raw);
-        catalogCache = parsed.models || [];
-        return catalogCache;
+      const candidates = [
+        path.resolve(process.cwd(), basePath, 'index.json'),
+        path.resolve(process.cwd(), 'data/vendors/index.json'),
+        path.resolve(process.cwd(), 'PODS/POD.THIN/Softapps/EDITORS/EDITORS.PanelBuddy/data/vendors/index.json')
+      ];
+      for (const p of candidates) {
+        if (fs.existsSync(p)) {
+          const raw = fs.readFileSync(p, 'utf8');
+          const parsed = JSON.parse(raw);
+          catalogCache = parsed.models || [];
+          return catalogCache;
+        }
       }
     } catch (e) {
       // Continue to fetch fallback
@@ -168,12 +174,18 @@ export async function loadVendorModels(vendorName, basePath = './data/vendors/')
     try {
       const fs = await import('fs');
       const path = await import('path');
-      const fullPath = path.resolve(process.cwd(), `PODS/POD.THIN/Softapps/EDITORS/EDITORS.PanelBuddy/data/vendors/${fileKey}.json`);
-      if (fs.existsSync(fullPath)) {
-        const raw = fs.readFileSync(fullPath, 'utf8');
-        const list = JSON.parse(raw);
-        vendorCache.set(fileKey, list);
-        return list;
+      const candidates = [
+        path.resolve(process.cwd(), basePath, `${fileKey}.json`),
+        path.resolve(process.cwd(), `data/vendors/${fileKey}.json`),
+        path.resolve(process.cwd(), `PODS/POD.THIN/Softapps/EDITORS/EDITORS.PanelBuddy/data/vendors/${fileKey}.json`)
+      ];
+      for (const p of candidates) {
+        if (fs.existsSync(p)) {
+          const raw = fs.readFileSync(p, 'utf8');
+          const list = JSON.parse(raw);
+          vendorCache.set(fileKey, list);
+          return list;
+        }
       }
     } catch (e) {
       // Fall through
