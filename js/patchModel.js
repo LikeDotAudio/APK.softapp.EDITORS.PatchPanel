@@ -21,8 +21,10 @@ export class PatchPanelModel {
   generatePairs(count) {
     this.pairs = [];
     for (let i = 1; i <= count; i++) {
+      const mode = i <= 16 ? 'half-normal' : 'full-normal';
       this.pairs.push({
         ch: i,
+        channel: i,
         topLabel: `PREAMP ${i}`,
         topEndpoint: `MIC-PRE-01 / OUT-${i}`,
         topSignal: 'MIC/LINE',
@@ -30,7 +32,24 @@ export class PatchPanelModel {
         bottomEndpoint: `INTERFACE / IN-${i}`,
         bottomSignal: 'LINE',
         normalling: i <= 16 ? 'half' : 'full',
+        normalMode: mode,
       });
+    }
+  }
+
+  setNormalling(channelNumber, mode) {
+    const pair = this.pairs.find(p => p.ch === channelNumber || p.channel === channelNumber);
+    if (pair) {
+      pair.normalMode = mode;
+      pair.normalling = mode.includes('full') ? 'full' : (mode.includes('half') ? 'half' : mode);
+    }
+  }
+
+  setLabels(channelNumber, topLabel, bottomLabel) {
+    const pair = this.pairs.find(p => p.ch === channelNumber || p.channel === channelNumber);
+    if (pair) {
+      if (topLabel !== undefined) pair.topLabel = topLabel;
+      if (bottomLabel !== undefined) pair.bottomLabel = bottomLabel;
     }
   }
 }

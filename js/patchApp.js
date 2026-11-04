@@ -4,6 +4,8 @@
 import { BlockBridge } from './blockBridge.js';
 import { PatchPanelModel, NORMAL_TYPES } from './patchModel.js';
 
+export { PatchPanelModel, NORMAL_TYPES };
+
 export class PatchApp {
   constructor() {
     this.model = new PatchPanelModel(24);
