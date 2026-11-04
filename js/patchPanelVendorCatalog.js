@@ -100,114 +100,126 @@ export function modelToMechanicalPreset(model) {
 }
 
 /**
- * Load the master hardware catalog index
- * Works in Node.js (via fs) and in Browser (via fetch)
+ * THE CATALOGUE LIVES IN THE BIM LIBRARY (DATABASE.server.BIM), not here.
+ * Every patch panel is a part there (class "Patch Panel", its panel geometry in
+ * ext.patch_panel); this module turns those parts back into the rows the label
+ * maker and CAD visualizer have always used. The data/vendors/ copies this app
+ * and EDITORS.PatchPanel each used to carry are gone.
+ *   Browser: GET <BIM_API>/parts?class=Patch Panel&full=1 (paged).
+ *   Node (tests, tools): the library repo on disk, beside this tree.
+ * BIM_API is same-origin /api/bim unless the page sets globalThis.APK_BIM_API.
  */
-export async function loadMasterCatalog(basePath = './data/vendors/') {
-  if (catalogCache && catalogCache.length > 0) {
-    return catalogCache;
-  }
+const LIBRARY_FROM_HERE = '../../../../../POD.database/DATABASE.server.BIM/SRC/library/';
+const PAGE = 1000;
 
-  // Node environment
-  if (typeof process !== 'undefined' && process.versions?.node) {
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const candidates = [
-        path.resolve(process.cwd(), basePath, 'index.json'),
-        path.resolve(process.cwd(), 'data/vendors/index.json'),
-        path.resolve(process.cwd(), 'PODS/POD.THIN/Softapps/EDITORS/EDITORS.PanelBuddy/data/vendors/index.json')
-      ];
-      for (const p of candidates) {
-        if (fs.existsSync(p)) {
-          const raw = fs.readFileSync(p, 'utf8');
-          const parsed = JSON.parse(raw);
-          catalogCache = parsed.models || [];
-          return catalogCache;
-        }
-      }
-    } catch (e) {
-      // Continue to fetch fallback
+function bimApi() {
+  return (globalThis.APK_BIM_API || '/api/bim').replace(/\/$/, '');
+}
+
+const in2 = mm => Math.round((Number(mm) / 25.4) * 100) / 100;
+
+/** One BIM part → the row shape this module has always handed out. */
+export function partToVendorRow(part) {
+  const ext = part?.ext?.patch_panel;
+  if (!ext) return null;
+  const phys = part.physical || {};
+  return {
+    index: ext.index,
+    make: ext.make || part.manufacturer,
+    model: part.model,
+    type: ext.type,
+    rackUnits: `${phys.rack_units}U`,
+    portCount: ext.portCount,
+    heightInches: in2(phys.height_mm),
+    widthInches: in2(phys.width_mm),
+    portPitchInches: in2(ext.portPitchMm),
+    labelWindowHeightInches: in2(ext.labelWindowHeightMm),
+    heightMm: phys.height_mm,
+    widthMm: phys.width_mm,
+    portPitchMm: ext.portPitchMm,
+    labelWindowHeightMm: ext.labelWindowHeightMm,
+    stripWidthMm: ext.stripWidthMm,
+    datumMm: ext.datumMm,
+    retaining: ext.retaining,
+    bimId: part.id
+  };
+}
+
+function finish(parts) {
+  return parts.map(partToVendorRow).filter(Boolean)
+    .sort((a, b) => a.make.localeCompare(b.make) || (a.index ?? 0) - (b.index ?? 0));
+}
+
+async function readLibraryFromDisk() {
+  const fs = await import('fs');
+  const path = await import('path');
+  const { fileURLToPath } = await import('url');
+  const roots = [
+    fileURLToPath(new URL(LIBRARY_FROM_HERE, import.meta.url)),
+    path.resolve(process.cwd(), 'PODS/POD.database/DATABASE.server.BIM/SRC/library')
+  ];
+  const root = roots.find(r => fs.existsSync(r));
+  if (!root) return null;
+  const parts = [];
+  for (const maker of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!maker.isDirectory() || maker.name.startsWith('.')) continue;
+    for (const f of fs.readdirSync(path.join(root, maker.name))) {
+      if (!f.endsWith('.bim.json')) continue;
+      const text = fs.readFileSync(path.join(root, maker.name, f), 'utf8');
+      if (!text.includes('"patch_panel"')) continue;
+      parts.push(JSON.parse(text));
     }
   }
+  return parts;
+}
 
-  // Browser environment
-  if (typeof fetch === 'function') {
-    try {
-      const url = basePath.endsWith('/') ? `${basePath}index.json` : `${basePath}/index.json`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const parsed = await res.json();
-        catalogCache = parsed.models || [];
-        return catalogCache;
-      }
-    } catch (e) {
-      console.warn('[patchPanelVendorCatalog] fetch failed, attempting vendor individual load', e);
-    }
+async function readLibraryOverHttp() {
+  const parts = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const url = `${bimApi()}/parts?class=${encodeURIComponent('Patch Panel')}&full=1&sort=name&limit=${PAGE}&offset=${offset}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`BIM library answered ${res.status} for ${url}`);
+    const page = await res.json();
+    parts.push(...page.items);
+    if (!page.items.length || parts.length >= page.total) break;
   }
-
-  return catalogCache || [];
+  return parts;
 }
 
 /**
- * Load models for a specific vendor
+ * Load the whole patch-panel catalogue (every vendor).
+ * The basePath argument is kept for callers that still pass one; it is unused.
  */
-export async function loadVendorModels(vendorName, basePath = './data/vendors/') {
+export async function loadMasterCatalog(_basePath) {
+  if (catalogCache && catalogCache.length > 0) {
+    return catalogCache;
+  }
+  try {
+    const parts = (typeof process !== 'undefined' && process.versions?.node && typeof window === 'undefined')
+      ? await readLibraryFromDisk()
+      : await readLibraryOverHttp();
+    catalogCache = finish(parts || []);
+  } catch (e) {
+    console.warn('[patchPanelVendorCatalog] the BIM library could not be read', e);
+    catalogCache = [];
+  }
+  return catalogCache;
+}
+
+/**
+ * Load models for a specific vendor (filtered from the master catalogue).
+ */
+export async function loadVendorModels(vendorName, _basePath) {
   const normKey = vendorName.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
   const fileKey = VENDOR_KEY_MAP[normKey] || vendorName.replace(/\s+/g, '_');
-
   if (vendorCache.has(fileKey)) {
     return vendorCache.get(fileKey);
   }
-
-  // If master is already loaded, filter from master
-  if (catalogCache && catalogCache.length > 0) {
-    const filtered = catalogCache.filter(m => m.make.toLowerCase() === vendorName.toLowerCase() || m.make.toLowerCase() === normKey);
-    if (filtered.length > 0) {
-      vendorCache.set(fileKey, filtered);
-      return filtered;
-    }
-  }
-
-  // Node environment
-  if (typeof process !== 'undefined' && process.versions?.node) {
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const candidates = [
-        path.resolve(process.cwd(), basePath, `${fileKey}.json`),
-        path.resolve(process.cwd(), `data/vendors/${fileKey}.json`),
-        path.resolve(process.cwd(), `PODS/POD.THIN/Softapps/EDITORS/EDITORS.PanelBuddy/data/vendors/${fileKey}.json`)
-      ];
-      for (const p of candidates) {
-        if (fs.existsSync(p)) {
-          const raw = fs.readFileSync(p, 'utf8');
-          const list = JSON.parse(raw);
-          vendorCache.set(fileKey, list);
-          return list;
-        }
-      }
-    } catch (e) {
-      // Fall through
-    }
-  }
-
-  // Browser fetch
-  if (typeof fetch === 'function') {
-    try {
-      const url = `${basePath.replace(/\/$/, '')}/${fileKey}.json`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const list = await res.json();
-        vendorCache.set(fileKey, list);
-        return list;
-      }
-    } catch (e) {
-      console.warn(`[patchPanelVendorCatalog] Could not load vendor file for ${vendorName}`, e);
-    }
-  }
-
-  return [];
+  const all = await loadMasterCatalog();
+  const want = vendorName.toLowerCase();
+  const list = all.filter(m => m.make.toLowerCase() === want || m.make.toLowerCase() === normKey);
+  vendorCache.set(fileKey, list);
+  return list;
 }
 
 /**
