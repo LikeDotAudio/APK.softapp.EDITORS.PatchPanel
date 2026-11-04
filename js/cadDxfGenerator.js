@@ -309,12 +309,13 @@ export function generateCadPanelDxf(panel, options = {}) {
       for (let u = 0; u < ru; u++) {
         const uCenterY = u * 44.45 + 22.225;
         [uCenterY - 15.875, uCenterY + 15.875].forEach(slotY => {
-          // Slot perimeter (two vertical lines and two semicircular arc caps, radius 3.5mm)
-          const rx = 3.5;
-          dxf.line(earX - rx, slotY - 2.5, earX - rx, slotY + 2.5, '1_MOUNTING_SLOTS');
-          dxf.line(earX + rx, slotY - 2.5, earX + rx, slotY + 2.5, '1_MOUNTING_SLOTS');
-          dxf.arc(earX, slotY + 2.5, rx, 0, 180, '1_MOUNTING_SLOTS');
-          dxf.arc(earX, slotY - 2.5, rx, 180, 360, '1_MOUNTING_SLOTS');
+          // Slot perimeter: a HORIZONTAL 9.5 x 7 mm slot — two horizontal lines and two
+          // semicircular end caps of radius 3.5 mm, the slack running sideways to meet the rail.
+          const r = 3.5, half = (9.5 - 2 * r) / 2;
+          dxf.line(earX - half, slotY - r, earX + half, slotY - r, '1_MOUNTING_SLOTS');
+          dxf.line(earX - half, slotY + r, earX + half, slotY + r, '1_MOUNTING_SLOTS');
+          dxf.arc(earX + half, slotY, r, 270, 90, '1_MOUNTING_SLOTS');
+          dxf.arc(earX - half, slotY, r, 90, 270, '1_MOUNTING_SLOTS');
           // Center mark
           dxf.circle(earX, slotY, 0.75, '4_CROSSHAIRS');
         });

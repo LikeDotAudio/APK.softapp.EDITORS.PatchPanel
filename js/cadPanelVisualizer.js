@@ -121,8 +121,8 @@ export function renderCadPanelSvg(panel, options = {}) {
         const earX = side === -1 ? 7.95 : rackWidthMm - 7.95;
         for (let u = 0; u < ru; u++) {
           const uCenterY = u * 44.45 + 22.225;
-          svgParts.push(`<ellipse cx="${earX}" cy="${uCenterY - 15.875}" rx="3.5" ry="5" fill="none" stroke="#38bdf8" stroke-width="0.5"/>`);
-          svgParts.push(`<ellipse cx="${earX}" cy="${uCenterY + 15.875}" rx="3.5" ry="5" fill="none" stroke="#38bdf8" stroke-width="0.5"/>`);
+          svgParts.push(`<ellipse cx="${earX}" cy="${uCenterY - 15.875}" rx="4.75" ry="3.5" fill="none" stroke="#38bdf8" stroke-width="0.5"/>`);
+          svgParts.push(`<ellipse cx="${earX}" cy="${uCenterY + 15.875}" rx="4.75" ry="3.5" fill="none" stroke="#38bdf8" stroke-width="0.5"/>`);
           svgParts.push(`<line x1="${earX - 6}" y1="${uCenterY}" x2="${earX + 6}" y2="${uCenterY}" stroke="#64748b" stroke-width="0.2" stroke-dasharray="1,1"/>`);
         }
       });
@@ -204,9 +204,9 @@ export function renderCadPanelSvg(panel, options = {}) {
         for (let u = 0; u < ru; u++) {
           const uCenterY = u * 44.45 + 22.225;
           [uCenterY - 15.875, uCenterY + 15.875].forEach(slotY => {
-            svgParts.push(`<rect x="${earX - 3.5}" y="${slotY - 4.5}" width="7" height="9" rx="3.5" fill="#09090b" stroke="#3f3f46" stroke-width="0.8"/>`);
-            svgParts.push(`<circle cx="${earX}" cy="${slotY}" r="4.2" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.5"/>`);
-            svgParts.push(`<rect x="${earX - 2.8}" y="${slotY - 0.5}" width="5.6" height="1" fill="#18181b"/>`);
+            svgParts.push(`<rect x="${earX - 4.75}" y="${slotY - 3.5}" width="9.5" height="7" rx="3.5" fill="#09090b" stroke="#3f3f46" stroke-width="0.8"/>`);
+            svgParts.push(`<circle cx="${earX}" cy="${slotY}" r="3.2" fill="url(#cad_screw_head)" stroke="#18181b" stroke-width="0.5"/>`);
+            svgParts.push(`<rect x="${earX - 2.2}" y="${slotY - 0.45}" width="4.4" height="0.9" fill="#18181b"/>`);
           });
         }
       });
