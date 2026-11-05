@@ -2,7 +2,6 @@
 // MIT Licence. Free, for everyone, for ever. Full text in LICENSE at the root.
 // Authentic 19-Inch EIA Rack Panel CAD Builder with True Vector Connectors
 
-import { BlockBridge } from './blockBridge.js';
 import { CAD_CONNECTOR_CATALOG, getConnectorMeta } from './cadConnectorSymbols.js';
 import { renderCadPanelSvg } from './cadPanelVisualizer.js';
 import {
@@ -21,6 +20,9 @@ import {
 } from './patchPanelVendorCatalog.js';
 import { generateCadPanelDxf } from './cadDxfGenerator.js';
 import { downloadPanelDxf, openInCadLikeAudio } from './cadLikeAudioBridge.js';
+import { createPortTables, fillEndpointsFromThings } from './portTables.js';
+
+const S = () => window.APKSoftapp;
 
 export class PanelBuddyApp {
   constructor() {
@@ -41,12 +43,7 @@ export class PanelBuddyApp {
 
     this.activeLabelProfile = { ...LABEL_MECHANICAL_PRESETS[0] };
 
-    this.bridge = new BlockBridge({
-      name: 'Panel Buddy',
-      type: 'panel',
-      onBlockLoaded: (block, meta) => this.handleBlockLoaded(block, meta),
-      onBlockChanged: () => {},
-    });
+    this.discovery = null; // APKSoftapp.discovered() handle, once the bus answers
 
     this.initElements();
     this.attachEvents();
@@ -55,6 +52,60 @@ export class PanelBuddyApp {
     this.setupLabelMaker();
     this.setupHardwareCatalog();
     this.loadInitialData();
+
+    // The CAD (cad.like.audio/host@1): load replaces the panel; request asks for the block.
+    S().inheritTheme();
+    this.host = S().connectHost({
+      editor: 'Panel Buddy',
+      blockType: 'panel',
+      onLoad: (block, meta) => {
+        this.handleBlockLoaded(block, meta);
+        const tag = document.getElementById('block-tag');
+        if (tag) tag.textContent = meta.title || meta.blockName || meta.name || 'PANEL BLOCK';
+      },
+      onRequest: () => ({ block: this.toBlock(), meta: this.blockMeta() }),
+    });
+    this.startDiscovery();
+  }
+
+  /** The host is told of every edit; standalone there is nobody to tell. */
+  changed() {
+    this.host?.changed(this.toBlock(), this.blockMeta());
+  }
+
+  sayStatus(text, state) {
+    if (!this.panelStatus) return;
+    this.panelStatus.textContent = text;
+    this.panelStatus.setAttribute('data-apk-state', state);
+  }
+
+  /** What the bus knows, through APKSoftapp; the kinds offered are config/discovery.json's. */
+  async startDiscovery() {
+    let kinds = [];
+    try {
+      const res = await fetch('./config/discovery.json', { cache: 'no-store' });
+      if (res.ok) kinds = (await res.json()).kinds || [];
+    } catch (_) { /* no config: every kind */ }
+    const d = await S().discovered({ kinds, onChange: (things) => this.sayDiscovered(things) });
+    this.discovery = d.ok ? d : null;
+    if (!d.ok) this.sayStatus(d.reason, 'dead');
+    else this.sayDiscovered(d.things());
+  }
+
+  sayDiscovered(things) {
+    const good = things.filter((t) => t.live && t.live.state === 'good').length;
+    this.sayStatus(`${things.length} discovered on the bus (${good} verified in the last ${S().TRUST_MINUTES} min)`,
+      good ? 'good' : 'kinda');
+  }
+
+  /** Ports with no wire endpoint take the next discovered device (by MAC / serial). */
+  fillEndpointsFromDiscovered() {
+    if (!this.discovery) return;
+    const n = fillEndpointsFromThings(this.panel.ports, this.discovery.things());
+    this.sayStatus(n ? `Wired ${n} empty endpoint(s) to discovered devices.` : 'No empty endpoint, or nothing new on the bus.', 'kinda');
+    if (!n) return;
+    this.render();
+    this.changed();
   }
 
   initElements() {
@@ -73,7 +124,6 @@ export class PanelBuddyApp {
     this.connectorPalette = document.getElementById('connector-palette');
     this.geometrySummary = document.getElementById('geometry-summary');
     this.previewStage = document.getElementById('preview-stage');
-    this.portTableBody = document.getElementById('port-table-body');
     this.tableStatusLabel = document.getElementById('table-status-label');
 
     // Main Page Hardware & Label Specs
@@ -88,7 +138,12 @@ export class PanelBuddyApp {
     this.chipsTableMode = document.getElementById('chips-table-mode');
     this.tablePaired = document.getElementById('table-paired');
     this.tableLinear = document.getElementById('table-linear');
-    this.pairedTableBody = document.getElementById('paired-table-body');
+    this.panelStatus = document.getElementById('panel-status');
+    this.portTables = createPortTables(this, {
+      pairedHost: this.tablePaired,
+      linearHost: this.tableLinear,
+      connectorOptions: () => CAD_CONNECTOR_CATALOG.map(c => c.label),
+    });
 
     this.btnAddPort = document.getElementById('btn-add-port');
     this.btnGeneratePorts = document.getElementById('btn-generate-ports');
@@ -152,7 +207,7 @@ export class PanelBuddyApp {
         this.panel.formFactor = c.dataset.form;
         this.updateChipsState();
         this.render();
-        this.bridge.notifyChanged();
+        this.changed();
       });
     });
 
@@ -168,7 +223,7 @@ export class PanelBuddyApp {
         this.panel.rackUnits = ru;
         this.updateChipsState();
         this.render();
-        this.bridge.notifyChanged();
+        this.changed();
       });
       this.chipsRu.appendChild(chip);
     });
@@ -185,7 +240,7 @@ export class PanelBuddyApp {
         this.panel.portsPerRow = ppr;
         this.updateChipsState();
         this.render();
-        this.bridge.notifyChanged();
+        this.changed();
       });
       this.chipsPpr.appendChild(chip);
     });
@@ -214,7 +269,7 @@ export class PanelBuddyApp {
       btn.dataset.connId = conn.id;
       btn.setAttribute('draggable', 'true');
       btn.title = `Drag and drop onto panel, or click to apply: ${conn.desc} (${conn.category})`;
-      btn.innerHTML = `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${conn.color};"></span><span>${conn.label}</span>`;
+      btn.innerHTML = `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${S().esc(conn.color)};"></span><span>${S().esc(conn.label)}</span>`;
       
       btn.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('application/json', JSON.stringify({
@@ -246,19 +301,19 @@ export class PanelBuddyApp {
   attachEvents() {
     this.btnOpen?.addEventListener('click', () => this.promptOpen());
     this.btnSave?.addEventListener('click', () => this.saveBlock());
-    this.btnClose?.addEventListener('click', () => this.bridge.close());
-    this.btnSyncDiscovered?.addEventListener('click', () => this.loadFromDiscoveredProject());
+    this.btnClose?.addEventListener('click', () => this.host.close());
+    this.btnSyncDiscovered?.addEventListener('click', () => this.fillEndpointsFromDiscovered());
 
     this.inputPanelName.addEventListener('input', (e) => {
       this.panel.name = e.target.value;
       this.renderPreview();
-      this.bridge.notifyChanged();
+      this.changed();
     });
 
     this.inputPanelRoom.addEventListener('input', (e) => {
       this.panel.room = e.target.value;
       this.renderPreview();
-      this.bridge.notifyChanged();
+      this.changed();
     });
 
     // Table Mode Chips (Paired Patchbay Schedule vs Linear Ports)
@@ -301,7 +356,7 @@ export class PanelBuddyApp {
       if (this.selectRetainingType) this.selectRetainingType.value = retaining;
 
       this.renderPreview();
-      this.bridge.notifyChanged();
+      this.changed();
     };
 
     [this.mainInputPitch, this.mainInputWindowH, this.mainInputDatum, this.mainInputStripW, this.mainSelectRetaining].forEach(el => {
@@ -347,7 +402,7 @@ export class PanelBuddyApp {
         this.selectedPortIndex = this.panel.ports.length - 1;
       }
       this.render();
-      this.bridge.notifyChanged();
+      this.changed();
     });
 
     this.btnGeneratePorts?.addEventListener('click', () => {
@@ -497,7 +552,7 @@ export class PanelBuddyApp {
 
     const populateVendors = (sel, placeholder) => {
       if (!sel) return;
-      sel.innerHTML = `<option value="">${placeholder}</option>`;
+      sel.replaceChildren(new Option(placeholder, ''));
       VENDORS.forEach(v => {
         const opt = document.createElement('option');
         opt.value = v;
@@ -536,7 +591,7 @@ export class PanelBuddyApp {
       const models = await loadVendorModels(vendor);
       const renderOptions = (sel) => {
         if (!sel) return;
-        sel.innerHTML = `<option value="">-- Choose ${vendor} Model (${models.length}) --</option>`;
+        sel.replaceChildren(new Option(`-- Choose ${vendor} Model (${models.length}) --`, ''));
         models.forEach(m => {
           const opt = document.createElement('option');
           opt.value = m.model;
@@ -632,7 +687,7 @@ export class PanelBuddyApp {
     if (this.modalLabelMaker && this.modalLabelMaker.style.display !== 'none') {
       this.renderLabelMakerPreview();
     }
-    this.bridge.notifyChanged();
+    this.changed();
   }
 
   printLabel1to1() {
@@ -669,23 +724,6 @@ export class PanelBuddyApp {
   }
 
   loadInitialData() {
-    this.loadFromDiscoveredProject().catch(() => {
-      this.generateDefaultPanel();
-    });
-  }
-
-  async loadFromDiscoveredProject() {
-    try {
-      const data = await this.bridge.fetchDiscoveredProject();
-      if (data && (data.panels || data.patchPanels)) {
-        const panels = data.panels || data.patchPanels;
-        if (Array.isArray(panels) && panels.length > 0) {
-          const first = panels[0];
-          this.handleBlockLoaded(first, { title: first.name || first.panelLabel });
-          return;
-        }
-      }
-    } catch (_) {}
     this.generateDefaultPanel();
   }
 
@@ -733,7 +771,7 @@ export class PanelBuddyApp {
     }
     this.selectedPortIndex = 0;
     this.render();
-    this.bridge.notifyChanged();
+    this.changed();
   }
 
   applyConnectorToSelected(connectorId) {
@@ -745,13 +783,13 @@ export class PanelBuddyApp {
 
     this.panel.ports[this.selectedPortIndex].connector = meta.label;
     this.render();
-    this.bridge.notifyChanged();
+    this.changed();
   }
 
   batchSetConnector(connType) {
     this.panel.ports.forEach(p => { p.connector = connType; });
     this.render();
-    this.bridge.notifyChanged();
+    this.changed();
   }
 
   batchSplitInOut() {
@@ -766,7 +804,7 @@ export class PanelBuddyApp {
       }
     });
     this.render();
-    this.bridge.notifyChanged();
+    this.changed();
   }
 
   handleBlockLoaded(block, meta = {}) {
@@ -883,7 +921,7 @@ export class PanelBuddyApp {
             this.panel.ports[targetIdx].connector = payload.connectorId;
             this.selectPort(targetIdx);
             this.render();
-            this.bridge.notifyChanged();
+            this.changed();
           } else if (payload.type === 'PANEL_PORT_DRAG') {
             // Drag port onto another port to shuffle/swap positions
             const fromIdx = payload.fromIndex;
@@ -901,26 +939,8 @@ export class PanelBuddyApp {
     this.selectedPortIndex = idx;
     this.renderPreview();
 
-    // Highlight row in table and scroll into view
-    if (this.portTableBody) {
-      this.portTableBody.querySelectorAll('tr').forEach((tr, rIdx) => {
-        tr.classList.toggle('selected', rIdx === idx);
-        if (rIdx === idx) {
-          tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      });
-    }
-
-    if (this.pairedTableBody) {
-      const pairCount = Math.max(1, this.panel.portsPerRow || Math.ceil(this.panel.ports.length / 2));
-      const pairedRowIdx = idx % pairCount;
-      this.pairedTableBody.querySelectorAll('tr').forEach((tr, rIdx) => {
-        tr.classList.toggle('selected', rIdx === pairedRowIdx);
-        if (rIdx === pairedRowIdx) {
-          tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      });
-    }
+    // Highlight the row in whichever table is up, and scroll it into view
+    this.portTables?.select(idx);
 
     const p = this.panel.ports[idx];
     if (this.tableStatusLabel && p) {
@@ -952,341 +972,7 @@ export class PanelBuddyApp {
   }
 
   renderTable() {
-    if (this.tableMode === 'paired') {
-      if (this.tablePaired) this.tablePaired.style.display = 'table';
-      if (this.tableLinear) this.tableLinear.style.display = 'none';
-      this.renderPairedTable();
-    } else {
-      if (this.tablePaired) this.tablePaired.style.display = 'none';
-      if (this.tableLinear) this.tableLinear.style.display = 'table';
-      this.renderLinearTable();
-    }
-  }
-
-  renderPairedTable() {
-    if (!this.pairedTableBody) return;
-    this.pairedTableBody.innerHTML = '';
-
-    const pairCount = Math.max(1, this.panel.portsPerRow || Math.ceil(this.panel.ports.length / 2));
-
-    // Ensure ports array has enough items for both rows
-    const totalNeeded = pairCount * 2;
-    while (this.panel.ports.length < totalNeeded) {
-      const idx = this.panel.ports.length;
-      const isTop = idx < pairCount;
-      const ch = (idx % pairCount) + 1;
-      this.panel.ports.push({
-        portNumber: idx + 1,
-        label: isTop ? `PREAMP ${ch}` : `DAW IN ${ch}`,
-        endpoint: isTop ? `MIC-PRE-01 / OUT-${ch}` : `INTERFACE / IN-${ch}`,
-        signal: 'Analog Audio',
-        connector: 'TT-Bantam',
-        normalling: ch <= 16 ? 'half' : 'full'
-      });
-    }
-
-    for (let ch = 1; ch <= pairCount; ch++) {
-      const topIdx = ch - 1;
-      const botIdx = topIdx + pairCount;
-      const top = this.panel.ports[topIdx];
-      const bot = this.panel.ports[botIdx];
-
-      const tr = document.createElement('tr');
-      const isSelected = this.selectedPortIndex === topIdx || this.selectedPortIndex === botIdx;
-      if (isSelected) tr.classList.add('selected');
-
-      tr.addEventListener('click', (e) => {
-        if (!['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName)) {
-          this.selectPort(topIdx);
-        }
-      });
-
-      // 1. Ch #
-      const tdCh = document.createElement('td');
-      tdCh.className = 'col-idx text-center';
-      tdCh.innerHTML = `<span style="font-weight:bold; color:var(--osc-accent-primary); font-family:var(--font-mono);">${ch}</span>`;
-      tr.appendChild(tdCh);
-
-      // 2. Top Label (Output / Source)
-      const tdTopLbl = document.createElement('td');
-      const inputTopLbl = document.createElement('input');
-      inputTopLbl.type = 'text';
-      inputTopLbl.className = 'cell-input';
-      inputTopLbl.value = top.label || '';
-      inputTopLbl.placeholder = `Top Label ${ch}`;
-      inputTopLbl.addEventListener('focus', () => { this.selectedPortIndex = topIdx; this.renderPreview(); });
-      inputTopLbl.addEventListener('input', (e) => {
-        top.label = e.target.value;
-        this.renderPreview();
-        this.bridge.notifyChanged();
-      });
-      tdTopLbl.appendChild(inputTopLbl);
-      tr.appendChild(tdTopLbl);
-
-      // 3. Top Wire Endpoint
-      const tdTopEnd = document.createElement('td');
-      const inputTopEnd = document.createElement('input');
-      inputTopEnd.type = 'text';
-      inputTopEnd.className = 'cell-input';
-      inputTopEnd.value = top.endpoint || '';
-      inputTopEnd.placeholder = `e.g. MIC-PRE-01 / OUT-${ch}`;
-      inputTopEnd.addEventListener('focus', () => { this.selectedPortIndex = topIdx; this.renderPreview(); });
-      inputTopEnd.addEventListener('input', (e) => {
-        top.endpoint = e.target.value;
-        this.renderPreview();
-        this.bridge.notifyChanged();
-      });
-      tdTopEnd.appendChild(inputTopEnd);
-      tr.appendChild(tdTopEnd);
-
-      // 4. Bottom Label (Input / Destination)
-      const tdBotLbl = document.createElement('td');
-      const inputBotLbl = document.createElement('input');
-      inputBotLbl.type = 'text';
-      inputBotLbl.className = 'cell-input';
-      inputBotLbl.value = bot.label || '';
-      inputBotLbl.placeholder = `Bottom Label ${ch}`;
-      inputBotLbl.addEventListener('focus', () => { this.selectedPortIndex = botIdx; this.renderPreview(); });
-      inputBotLbl.addEventListener('input', (e) => {
-        bot.label = e.target.value;
-        this.renderPreview();
-        this.bridge.notifyChanged();
-      });
-      tdBotLbl.appendChild(inputBotLbl);
-      tr.appendChild(tdBotLbl);
-
-      // 5. Bottom Wire Endpoint
-      const tdBotEnd = document.createElement('td');
-      const inputBotEnd = document.createElement('input');
-      inputBotEnd.type = 'text';
-      inputBotEnd.className = 'cell-input';
-      inputBotEnd.value = bot.endpoint || '';
-      inputBotEnd.placeholder = `e.g. INTERFACE / IN-${ch}`;
-      inputBotEnd.addEventListener('focus', () => { this.selectedPortIndex = botIdx; this.renderPreview(); });
-      inputBotEnd.addEventListener('input', (e) => {
-        bot.endpoint = e.target.value;
-        this.renderPreview();
-        this.bridge.notifyChanged();
-      });
-      tdBotEnd.appendChild(inputBotEnd);
-      tr.appendChild(tdBotEnd);
-
-      // 6. Normalling
-      const tdNorm = document.createElement('td');
-      const selNorm = document.createElement('select');
-      selNorm.className = 'cell-select';
-      const normOptions = [
-        { id: 'half', label: 'Half Normal' },
-        { id: 'full', label: 'Full Normal' },
-        { id: 'parallel', label: 'Parallel (Mult)' },
-        { id: 'isolated', label: 'Non-Normal (Isolated)' }
-      ];
-      const curNorm = String(top.normalling || bot.normalling || 'half').toLowerCase();
-      normOptions.forEach(opt => {
-        const option = document.createElement('option');
-        option.value = opt.id;
-        option.textContent = opt.label;
-        if (curNorm.includes(opt.id)) option.selected = true;
-        selNorm.appendChild(option);
-      });
-
-      selNorm.addEventListener('change', (e) => {
-        const mode = e.target.value;
-        top.normalling = mode;
-        bot.normalling = mode;
-        top.normalMode = mode;
-        bot.normalMode = mode;
-        this.renderPreview();
-        this.bridge.notifyChanged();
-      });
-      tdNorm.appendChild(selNorm);
-      tr.appendChild(tdNorm);
-
-      // 7. Actions (Swap In/Out, Clear)
-      const tdAct = document.createElement('td');
-      tdAct.className = 'col-actions';
-      tdAct.style.display = 'flex';
-      tdAct.style.gap = '4px';
-
-      const btnSwap = document.createElement('button');
-      btnSwap.className = 'btn-icon';
-      btnSwap.title = 'Swap Top and Bottom Ports';
-      btnSwap.textContent = '🔄';
-      btnSwap.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const tmpLbl = top.label;
-        top.label = bot.label;
-        bot.label = tmpLbl;
-        const tmpEnd = top.endpoint;
-        top.endpoint = bot.endpoint;
-        bot.endpoint = tmpEnd;
-        this.render();
-        this.bridge.notifyChanged();
-      });
-
-      const btnClr = document.createElement('button');
-      btnClr.className = 'btn-icon';
-      btnClr.title = 'Clear Wire Endpoints';
-      btnClr.textContent = '🧹';
-      btnClr.addEventListener('click', (e) => {
-        e.stopPropagation();
-        top.endpoint = '';
-        bot.endpoint = '';
-        this.render();
-        this.bridge.notifyChanged();
-      });
-
-      tdAct.appendChild(btnSwap);
-      tdAct.appendChild(btnClr);
-      tr.appendChild(tdAct);
-
-      this.pairedTableBody.appendChild(tr);
-    }
-  }
-
-  renderLinearTable() {
-    if (!this.portTableBody) return;
-    this.portTableBody.innerHTML = '';
-
-    this.panel.ports.forEach((port, idx) => {
-      const tr = document.createElement('tr');
-      tr.className = 'draggable-row';
-      tr.setAttribute('draggable', 'true');
-      tr.dataset.rowIdx = idx;
-      if (this.selectedPortIndex === idx) tr.classList.add('selected');
-
-      tr.addEventListener('dragstart', (e) => {
-        tr.classList.add('dragging');
-        e.dataTransfer.setData('application/json', JSON.stringify({
-          type: 'PANEL_PORT_DRAG',
-          fromIndex: idx
-        }));
-        e.dataTransfer.effectAllowed = 'move';
-      });
-
-      tr.addEventListener('dragend', () => {
-        tr.classList.remove('dragging');
-        this.portTableBody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
-      });
-
-      tr.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        tr.classList.add('drag-over');
-      });
-
-      tr.addEventListener('dragleave', () => {
-        tr.classList.remove('drag-over');
-      });
-
-      tr.addEventListener('drop', (e) => {
-        e.preventDefault();
-        tr.classList.remove('drag-over');
-        try {
-          const payload = JSON.parse(e.dataTransfer.getData('application/json'));
-          if (payload.type === 'PANEL_PORT_DRAG' && payload.fromIndex !== undefined && payload.fromIndex !== idx) {
-            this.swapOrMovePorts(payload.fromIndex, idx);
-          }
-        } catch (_) {}
-      });
-
-      tr.addEventListener('click', (e) => {
-        if (!['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName)) {
-          this.selectPort(idx);
-        }
-      });
-
-      // #
-      const tdNum = document.createElement('td');
-      tdNum.className = 'col-idx text-center';
-      tdNum.innerHTML = `<span style="font-weight:bold; color:var(--osc-accent-primary); font-family:var(--font-mono);">${port.portNumber ?? (idx + 1)}</span>`;
-      tr.appendChild(tdNum);
-
-      // Connector select
-      const tdConn = document.createElement('td');
-      tdConn.className = 'col-conn';
-      const selConn = document.createElement('select');
-      selConn.className = 'cell-select';
-      CAD_CONNECTOR_CATALOG.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.label;
-        opt.textContent = `${c.label} (${c.desc.split(' ')[0]})`;
-        if (port.connector === c.label || port.connector === c.id) opt.selected = true;
-        selConn.appendChild(opt);
-      });
-      selConn.addEventListener('change', (e) => {
-        port.connector = e.target.value;
-        this.renderPreview();
-        this.bridge.notifyChanged();
-      });
-      tdConn.appendChild(selConn);
-      tr.appendChild(tdConn);
-
-      // Label
-      const tdLbl = document.createElement('td');
-      const inputLbl = document.createElement('input');
-      inputLbl.type = 'text';
-      inputLbl.className = 'cell-input';
-      inputLbl.value = port.label || '';
-      inputLbl.addEventListener('focus', () => { this.selectedPortIndex = idx; this.renderPreview(); });
-      inputLbl.addEventListener('input', (e) => {
-        port.label = e.target.value;
-        this.renderPreview();
-        this.bridge.notifyChanged();
-      });
-      tdLbl.appendChild(inputLbl);
-      tr.appendChild(tdLbl);
-
-      // Endpoint
-      const tdEnd = document.createElement('td');
-      const inputEnd = document.createElement('input');
-      inputEnd.type = 'text';
-      inputEnd.className = 'cell-input';
-      inputEnd.value = port.endpoint || '';
-      inputEnd.placeholder = 'e.g. STAGE / IN-1';
-      inputEnd.addEventListener('focus', () => { this.selectedPortIndex = idx; this.renderPreview(); });
-      inputEnd.addEventListener('input', (e) => {
-        port.endpoint = e.target.value;
-        this.renderPreview();
-        this.bridge.notifyChanged();
-      });
-      tdEnd.appendChild(inputEnd);
-      tr.appendChild(tdEnd);
-
-      // Signal format
-      const tdSig = document.createElement('td');
-      const inputSig = document.createElement('input');
-      inputSig.type = 'text';
-      inputSig.className = 'cell-input';
-      inputSig.value = port.signal || 'Analog Audio';
-      inputSig.addEventListener('input', (e) => {
-        port.signal = e.target.value;
-        this.bridge.notifyChanged();
-      });
-      tdSig.appendChild(inputSig);
-      tr.appendChild(tdSig);
-
-      // Actions
-      const tdAct = document.createElement('td');
-      tdAct.className = 'col-actions';
-      const btnDel = document.createElement('button');
-      btnDel.className = 'btn-icon';
-      btnDel.title = 'Remove port';
-      btnDel.textContent = '🗑️';
-      btnDel.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.panel.ports.splice(idx, 1);
-        if (this.selectedPortIndex >= this.panel.ports.length) {
-          this.selectedPortIndex = Math.max(0, this.panel.ports.length - 1);
-        }
-        this.render();
-        this.bridge.notifyChanged();
-      });
-      tdAct.appendChild(btnDel);
-      tr.appendChild(tdAct);
-
-      this.portTableBody.appendChild(tr);
-    });
+    this.portTables.render(this.tableMode);
   }
 
   updateGeometrySummary() {
@@ -1304,7 +990,7 @@ export class PanelBuddyApp {
     this.panel.ports.forEach((p, i) => { p.portNumber = i + 1; });
     this.selectPort(targetIdx);
     this.render();
-    this.bridge.notifyChanged();
+    this.changed();
   }
 
   shufflePorts() {
@@ -1315,7 +1001,7 @@ export class PanelBuddyApp {
     }
     this.panel.ports.forEach((p, i) => { p.portNumber = i + 1; });
     this.render();
-    this.bridge.notifyChanged();
+    this.changed();
   }
 
   reversePorts() {
@@ -1323,7 +1009,7 @@ export class PanelBuddyApp {
     this.panel.ports.reverse();
     this.panel.ports.forEach((p, i) => { p.portNumber = i + 1; });
     this.render();
-    this.bridge.notifyChanged();
+    this.changed();
   }
 
   shiftPorts(direction) {
@@ -1337,12 +1023,13 @@ export class PanelBuddyApp {
     }
     this.panel.ports.forEach((p, i) => { p.portNumber = i + 1; });
     this.render();
-    this.bridge.notifyChanged();
+    this.changed();
   }
 
-  saveBlock() {
+  /** The block this panel saves as (toCad.blockSave / blockChanged). */
+  toBlock() {
     const isPaired = this.tableMode === 'paired';
-    const block = {
+    return JSON.parse(JSON.stringify({
       type: isPaired ? 'patch_panel' : 'panel',
       id: this.panel.id,
       name: this.panel.name,
@@ -1353,9 +1040,17 @@ export class PanelBuddyApp {
       pairCount: this.panel.portsPerRow,
       pairs: this.getPairs(),
       ports: this.panel.ports,
-      timestamp: new Date().toISOString()
-    };
-    this.bridge.saveBlock(block, { filename: `panel_${this.panel.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}` });
+      timestamp: new Date().toISOString(),
+    }));
+  }
+
+  blockMeta() {
+    return { title: this.panel.name, filename: `panel_${String(this.panel.name || 'panel').toLowerCase().replace(/[^a-z0-9]/g, '_')}` };
+  }
+
+  /** Save: into the drawing inside the CAD, a .json download standalone. */
+  saveBlock() {
+    this.host.save(this.toBlock(), this.blockMeta());
   }
 
   exportCsv() {
@@ -1424,7 +1119,7 @@ export class PanelBuddyApp {
   }
 
   openInCad() {
-    openInCadLikeAudio(this.panel);
+    openInCadLikeAudio(this.panel, { onStatus: (text, state) => this.sayStatus(text, state) });
   }
 
   promptOpen() {

@@ -6,6 +6,13 @@
   <title>Panel Buddy & 19″ Rack CAD Builder · Standalone Editor</title>
   <link rel="stylesheet" href="./vendor/apk-contracts/apk-tokens.css">
   <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./vendor/apk-table/apk-table.css">
+  <style>
+    .panel-status { font-size: 10px; color: var(--osc-text-muted); max-width: 260px; }
+    .panel-status[data-apk-state="dead"] { color: var(--apk-state-dead, #ef4444); }
+    .panel-status[data-apk-state="good"] { color: var(--apk-state-good, #22c55e); }
+    .panel-status[data-apk-state="kinda"] { color: var(--apk-state-kinda, #eab308); }
+  </style>
   <style>
     .panel-container {
       display: grid;
@@ -311,13 +318,13 @@
       overflow: auto;
     }
 
-    table.port-table {
+    .port-table table {
       width: 100%;
       border-collapse: collapse;
       font-size: 11px;
     }
 
-    table.port-table th {
+    .port-table th {
       position: sticky;
       top: 0;
       background: var(--osc-bg-input);
@@ -329,16 +336,16 @@
       z-index: 2;
     }
 
-    table.port-table td {
+    .port-table td {
       padding: 2px 4px;
       border-bottom: 1px solid var(--osc-border-default);
     }
 
-    table.port-table tr.selected {
+    .port-table tr.selected {
       background: rgba(244, 144, 44, 0.12);
     }
 
-    table.port-table tr:hover {
+    .port-table tr:hover {
       background: rgba(255, 255, 255, 0.03);
     }
 
@@ -406,7 +413,8 @@
       <button class="btn btn-secondary" id="btn-open-labelmaker" title="Open Mechanical Label Maker Studio">
         <span class="btn-icon">📏</span> Label Maker
       </button>
-      <button class="btn btn-secondary" id="btn-sync-discovered" title="Load live panel from Discovered Project">
+      <span class="panel-status" id="panel-status" role="status"></span>
+      <button class="btn btn-secondary" id="btn-sync-discovered" title="Wire empty endpoints to what the bus has discovered">
         <span class="btn-icon">⚡</span> Discovered
       </button>
       <button class="btn btn-secondary" id="btn-open" title="Open block JSON">
@@ -591,35 +599,10 @@
       </div>
       <div class="data-table-container">
         <!-- Paired Patchbay Normalling Table (Audio & Video Patch Panel Designer) -->
-        <table class="port-table" id="table-paired" style="width: 100%;">
-          <thead>
-            <tr>
-              <th class="col-idx text-center">Ch #</th>
-              <th>Top Row (Output / Source)</th>
-              <th>Top Wire Endpoint</th>
-              <th>Bottom Row (Input / Destination)</th>
-              <th>Bottom Wire Endpoint</th>
-              <th style="width: 175px;">Normalling</th>
-              <th class="col-actions">Act</th>
-            </tr>
-          </thead>
-          <tbody id="paired-table-body"></tbody>
-        </table>
+        <div class="port-table" id="table-paired"></div>
 
         <!-- Linear Single-Port Table -->
-        <table class="port-table" id="table-linear" style="display: none; width: 100%;">
-          <thead>
-            <tr>
-              <th class="col-idx">#</th>
-              <th class="col-conn">CAD Connector Icon</th>
-              <th>Port Label / Channel</th>
-              <th>Destination / Wire Endpoint</th>
-              <th>Signal Format</th>
-              <th class="col-actions">Act</th>
-            </tr>
-          </thead>
-          <tbody id="port-table-body"></tbody>
-        </table>
+        <div class="port-table" id="table-linear" style="display: none;"></div>
       </div>
     </section>
   </div>
@@ -783,6 +766,10 @@
     </div>
   </div>
 
+  <script src="./vendor/apk-contracts/apk-contracts.global.js"></script>
+  <script src="/FrontEnd/shared/apk-bus.js"></script>
+  <script src="./vendor/apk-softapp/apk-softapp.js"></script>
+  <script src="./vendor/apk-table/apk-table.js"></script>
   <script type="module" src="./js/panelBuddyApp.js"></script>
 </body>
 </html>

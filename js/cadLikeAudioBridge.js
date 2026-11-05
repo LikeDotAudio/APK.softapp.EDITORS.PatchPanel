@@ -4,89 +4,73 @@
 
 import { generateCadPanelDxf } from './cadDxfGenerator.js';
 
-export const CAD_HOST_PROTOCOL = 'cad.like.audio/host@1';
+/* The wire: cad.like.audio/host@1 (EDITORS.CAD.Like.audio contract/host@1). The
+   vendored apk-softapp client names it; the literal is only the fallback for a
+   page (or a test) that did not load that script. */
+export const CAD_HOST_PROTOCOL = (typeof window !== 'undefined' && window.APKSoftapp && window.APKSoftapp.PROTOCOL)
+  || 'cad.like.audio/host@1';
+
+export function dxfFileName(panel, customName = null) {
+  const rawName = customName || panel.name || 'PATCH_PANEL';
+  return `${String(rawName).replace(/[^a-zA-Z0-9_-]/g, '_')}_fabrication.dxf`;
+}
 
 /**
  * Downloads the panel drawing as a standard AutoCAD R2000 DXF file
  */
-export function downloadPanelDxf(panel, customName = null) {
+export function downloadPanelDxf(panel, customName = null, win = window) {
   const dxfStr = generateCadPanelDxf(panel);
-  const rawName = customName || panel.name || 'PATCH_PANEL';
-  const fileName = `${rawName.replace(/[^a-zA-Z0-9_-]/g, '_')}_fabrication.dxf`;
-
-  const blob = new Blob([dxfStr], { type: 'application/dxf;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const fileName = dxfFileName(panel, customName);
+  const doc = win.document;
+  const blob = new win.Blob([dxfStr], { type: 'application/dxf;charset=utf-8' });
+  const url = win.URL.createObjectURL(blob);
+  const a = doc.createElement('a');
   a.href = url;
   a.download = fileName;
-  document.body.appendChild(a);
+  doc.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  doc.body.removeChild(a);
+  win.URL.revokeObjectURL(url);
   return { fileName, size: dxfStr.length };
 }
 
 /**
- * Opens EDITORS.CAD.Like.audio and hands over the generated DXF via cad.like.audio/host@1
+ * Opens EDITORS.CAD.Like.audio in a window of its own and hands it the DXF over
+ * cad.like.audio/host@1, as the CAD's hostBridge expects of a host that pops it
+ * out: the address names a host (`#/drawing?host=panel`), so the CAD treats
+ * window.opener (us) as its host and says `ready` once it is up. We answer that
+ * `ready` — from that window, at our own origin — with ONE `floorplan` { file }.
+ * No timers, no resends, no '*': a CAD that never says ready gets nothing.
  */
-export function openInCadLikeAudio(panel) {
+export function openInCadLikeAudio(panel, { win = window, onStatus = () => {} } = {}) {
   const dxfStr = generateCadPanelDxf(panel);
-  const rawName = panel.name || 'PATCH_PANEL';
-  const fileName = `${rawName.replace(/[^a-zA-Z0-9_-]/g, '_')}_fabrication.dxf`;
+  const fileName = dxfFileName(panel);
+  // Relative to this editor: ../EDITORS.CAD.Like.audio/dist/index.html#/drawing?host=panel
+  const cadUrl = new URL('../EDITORS.CAD.Like.audio/dist/index.html#/drawing?host=panel', win.location.href).href;
+  const origin = win.location.origin;
 
-  // 1. Persist DXF in storage as fallback transfer mechanism
-  try {
-    sessionStorage.setItem('apk_cad_pending_dxf', dxfStr);
-    sessionStorage.setItem('apk_cad_pending_dxf_filename', fileName);
-  } catch (e) {
-    // Storage quota or sandboxed
-  }
+  let cadWin = null;
+  let sent = false;
+  const onMessage = (event) => {
+    if (sent || !cadWin || event.source !== cadWin || event.origin !== origin) return;
+    const msg = event.data;
+    if (!msg || msg.protocol !== CAD_HOST_PROTOCOL || msg.type !== 'ready') return;
+    sent = true;
+    win.removeEventListener('message', onMessage);
+    const file = new win.File([dxfStr], fileName, { type: 'application/dxf' });
+    cadWin.postMessage({ protocol: CAD_HOST_PROTOCOL, type: 'floorplan', file }, origin);
+    onStatus(`Handed ${fileName} to the CAD.`, 'good');
+  };
+  // Listening before the window exists: its `ready` cannot come before us.
+  win.addEventListener('message', onMessage);
 
-  // 2. Resolve URL for EDITORS.CAD.Like.audio
-  // Relative to EDITORS.PanelBuddy: ../EDITORS.CAD.Like.audio/dist/index.html#/drawing?host=panel
-  const cadUrl = new URL('../EDITORS.CAD.Like.audio/dist/index.html#/drawing?host=panel', window.location.href).href;
-
-  const cadWin = window.open(cadUrl, '_blank');
+  cadWin = win.open(cadUrl, '_blank');
   if (!cadWin) {
-    // Popup was blocked: trigger direct DXF download instead
-    downloadPanelDxf(panel, fileName);
-    alert('Popup was blocked by the browser. Downloaded the DXF directly instead.');
+    win.removeEventListener('message', onMessage);
+    downloadPanelDxf(panel, null, win);
+    onStatus('The browser blocked the CAD window: the DXF was downloaded instead.', 'kinda');
     return null;
   }
-
-  // 3. Prepare File object for cad.like.audio hostBridge protocol
-  const dxfFile = new File([dxfStr], fileName, { type: 'application/dxf' });
-
-  let sent = false;
-  const sendDxf = () => {
-    if (sent || !cadWin || cadWin.closed) return;
-    try {
-      cadWin.postMessage({
-        protocol: CAD_HOST_PROTOCOL,
-        type: 'floorplan',
-        file: dxfFile
-      }, window.location.origin);
-      sent = true;
-    } catch (err) {
-      console.warn('[cadLikeAudioBridge] Error posting DXF to CAD window:', err);
-    }
-  };
-
-  // 4. Listen for 'ready' signal from CAD.Like.audio
-  const messageHandler = (event) => {
-    if (event.source !== cadWin) return;
-    const msg = event.data;
-    if (msg && msg.protocol === CAD_HOST_PROTOCOL && msg.type === 'ready') {
-      sendDxf();
-      window.removeEventListener('message', messageHandler);
-    }
-  };
-
-  window.addEventListener('message', messageHandler);
-
-  // Fallback ping: in case ready was emitted before listener attached
-  setTimeout(sendDxf, 1200);
-  setTimeout(sendDxf, 2500);
-
-  return { cadWin, fileName };
+  onStatus('Waiting for the CAD to say ready…', 'kinda');
+  return { cadWin, fileName, sent: () => sent };
 }
