@@ -7,3 +7,7 @@ geometry in `ext.patch_panel`); `js/patchPanelVendorCatalog.js` rebuilds the row
 from them (`/api/bim/parts?class=Patch Panel&full=1` in the browser, the library repo on disk under node). The
 `data/vendors` copy it and PanelBuddy each carried is gone; the rows are field-for-field identical.
 Tests: `node --test tests/*.test.mjs`.
+
+<!-- wiki:smoke -->
+**Smoke test** — ✅ PASS 3/3 since 2026-11-04 21:31 EST — [results](Documentation/%F0%9F%A7%A9Manual%20and%20Artifacts/SMOKE.md)
+<!-- /wiki:smoke -->
