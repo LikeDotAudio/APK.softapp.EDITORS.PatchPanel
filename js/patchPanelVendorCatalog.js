@@ -50,6 +50,7 @@ export const VENDOR_KEY_MAP = {
 
 // Internal model cache
 let catalogCache = null;
+let catalogFault = null; // what stopped the last read of the BIM library, or null
 let vendorCache = new Map();
 
 /**
@@ -178,7 +179,7 @@ async function readLibraryOverHttp() {
   for (let offset = 0; ; offset += PAGE) {
     const url = `${bimApi()}/parts?class=${encodeURIComponent('Patch Panel')}&full=1&sort=name&limit=${PAGE}&offset=${offset}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`BIM library answered ${res.status} for ${url}`);
+    if (!res.ok) throw Object.assign(new Error(`BIM library answered ${res.status} for ${url}`), { ok: false, status: res.status, statusText: res.statusText, url });
     const page = await res.json();
     parts.push(...page.items);
     if (!page.items.length || parts.length >= page.total) break;
@@ -199,11 +200,18 @@ export async function loadMasterCatalog(_basePath) {
       ? await readLibraryFromDisk()
       : await readLibraryOverHttp();
     catalogCache = finish(parts || []);
+    catalogFault = null;
   } catch (e) {
     console.warn('[patchPanelVendorCatalog] the BIM library could not be read', e);
     catalogCache = [];
+    catalogFault = e;
   }
   return catalogCache;
+}
+
+/** What stopped the last BIM library read (thrown error / HTTP answer), or null. An empty catalogue is retried on the next load. */
+export function catalogError() {
+  return catalogFault;
 }
 
 /**

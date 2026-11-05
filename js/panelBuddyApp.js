@@ -14,6 +14,7 @@ import {
   VENDORS,
   loadMasterCatalog,
   loadVendorModels,
+  catalogError,
   searchModels,
   findModel,
   modelToMechanicalPreset,
@@ -55,6 +56,38 @@ export class PanelBuddyApp {
 
     // The CAD (cad.like.audio/host@1): load replaces the panel; request asks for the block.
     S().inheritTheme();
+    S().describe({
+      name: 'Patch Panel',
+      does: 'Builds a 19-inch rack or wall-plate panel: ports, connectors, labels and wire endpoints, drawn in mm and exported for fabrication and label printing.',
+      inputs: [
+        { name: 'Panel block', from: 'the CAD block this editor was opened on (host@1 load)', kind: 'cad' },
+        { name: 'Panel file', from: '.json picked with Open', kind: 'file' },
+        { name: 'Panel / label models', from: 'the BIM library, class Patch Panel (/api/bim/parts)', kind: 'http' },
+        { name: 'Discovered devices', from: 'APKSoftapp.discovered() on the bus, kinds from config/discovery.json', kind: 'bus' },
+      ],
+      outputs: [
+        { name: 'Panel block', to: 'the CAD drawing on Save, or a panel_<name>.json download standalone', kind: 'cad' },
+        { name: 'Live edits', to: 'the CAD after every change (blockChanged)', kind: 'cad' },
+        { name: 'Schedule', to: '<name>_schedule.csv (paired or linear, as the table shows)', kind: 'file' },
+        { name: 'Drawing', to: '<name>_cad_<view>.svg and <name>_fabrication.dxf', kind: 'file' },
+        { name: 'Open in CAD', to: 'a new CAD window handed the DXF over host@1 (downloads the DXF if pop-ups are blocked)', kind: 'cad' },
+        { name: 'Label strip', to: '1:1 print sheet (pop-up), label strip .svg, labels .csv', kind: 'file' },
+      ],
+      controls: [
+        { name: 'Name / room', how: 'the panel name (used in every file name) and its room' },
+        { name: 'Form, RU, ports per row', how: 'chips: rack or wall plate, rack units, density' },
+        { name: 'View', how: 'chips: Faceplate, Drill, Scribble, Label maker' },
+        { name: 'Connector palette', how: 'click to set the selected port, or drag onto a port; drag a port onto another to swap' },
+        { name: '+ Add Port / Pair, Fill Grid to Density', how: 'add one port (pair), or fill the grid' },
+        { name: 'Fill All / Split 50/50', how: 'set every port to XLR-F, EtherCON or BNC, or half XLR-F / half XLR-M' },
+        { name: 'Shuffle / Reverse / Shift ◀ ▶', how: 'reorder the ports' },
+        { name: 'Port table', how: 'paired or linear: edit label, connector, endpoint, signal, normalling' },
+        { name: 'Hardware / label model', how: 'pick a vendor and model from the BIM library to set pitch, window height, datum, strip width' },
+        { name: 'Fill endpoints from discovered', how: 'give each empty endpoint the next device on the bus (by MAC / serial)' },
+        { name: 'Open / Save / ✕', how: 'open a .json, save into the CAD (or download), close the editor' },
+      ],
+      problems: ['bad_json', 'bad_input', 'file_unreadable', 'http_not_found', 'fetch_failed', 'bus_missing', 'permission_denied', 'not_in_cad'],
+    });
     this.host = S().connectHost({
       editor: 'Panel Buddy',
       blockType: 'panel',
@@ -82,14 +115,21 @@ export class PanelBuddyApp {
   /** What the bus knows, through APKSoftapp; the kinds offered are config/discovery.json's. */
   async startDiscovery() {
     let kinds = [];
-    try {
-      const res = await fetch('./config/discovery.json', { cache: 'no-store' });
-      if (res.ok) kinds = (await res.json()).kinds || [];
-    } catch (_) { /* no config: every kind */ }
+    const cfg = await S().fetchJson('./config/discovery.json', { cache: 'no-store', timeoutMs: 8000, subject: 'config/discovery.json' });
+    if (cfg.ok) kinds = (cfg.data && cfg.data.kinds) || [];
+    else S().showProblem(cfg.problem, { fix: ['Until config/discovery.json reads, every kind on the bus is offered.'] });
     const d = await S().discovered({ kinds, onChange: (things) => this.sayDiscovered(things) });
     this.discovery = d.ok ? d : null;
-    if (!d.ok) this.sayStatus(d.reason, 'dead');
-    else this.sayDiscovered(d.things());
+    if (!d.ok) {
+      this.sayStatus(d.reason, 'dead');
+      if (d.problem) {
+        S().showProblem(d.problem, {
+          subject: 'Discovered devices',
+          fix: ['The panel can still be drawn, saved and exported without the bus; only “fill endpoints from discovered” needs it.'],
+          onRetry: () => this.startDiscovery(),
+        });
+      }
+    } else this.sayDiscovered(d.things());
   }
 
   sayDiscovered(things) {
@@ -100,7 +140,15 @@ export class PanelBuddyApp {
 
   /** Ports with no wire endpoint take the next discovered device (by MAC / serial). */
   fillEndpointsFromDiscovered() {
-    if (!this.discovery) return;
+    if (!this.discovery) {
+      S().showProblem('bus_missing', {
+        subject: 'Fill endpoints from discovered',
+        detail: this.panelStatus ? this.panelStatus.textContent : '',
+        fix: ['Nothing has been discovered yet: wait for the status line to count devices on the bus, then press this again.'],
+        onRetry: () => this.startDiscovery(),
+      });
+      return;
+    }
     const n = fillEndpointsFromThings(this.panel.ports, this.discovery.things());
     this.sayStatus(n ? `Wired ${n} empty endpoint(s) to discovered devices.` : 'No empty endpoint, or nothing new on the bus.', 'kinda');
     if (!n) return;
@@ -565,11 +613,20 @@ export class PanelBuddyApp {
     populateVendors(this.selectLabelVendor, '-- Choose Manufacturer (15) --');
 
     // Asynchronously preload master catalog in background
-    loadMasterCatalog().then(models => {
+    const preload = () => loadMasterCatalog().then(models => {
       this.masterCatalog = models;
+      const fault = catalogError();
+      if (fault) {
+        S().showProblem(fault, {
+          subject: 'BIM library (patch panel models)',
+          fix: ['The model lists stay empty until the BIM library answers at /api/bim (DATABASE.server.BIM); the panel itself still works.'],
+          onRetry: preload,
+        });
+      }
     }).catch(err => {
       console.warn('Catalog index preload notice:', err);
     });
+    preload();
 
     const handleVendorChange = async (vendor, targetModelSelect, mirrorVendorSelect, mirrorModelSelect) => {
       if (mirrorVendorSelect && mirrorVendorSelect.value !== vendor) {
@@ -701,7 +758,13 @@ export class PanelBuddyApp {
       printWin.document.write(html);
       printWin.document.close();
     } else {
-      alert('Pop-up blocked. Please allow pop-ups to open the 1:1 print sheet.');
+      S().showProblem('permission_denied', {
+        subject: '1:1 print sheet',
+        detail: 'The browser blocked the pop-up window the print sheet opens in.',
+        fix: ['Allow pop-ups for this page (the blocked-pop-up icon in the address bar), then press Print 1:1 again.',
+          'Or use Export SVG: the label strip downloads at 1:1 scale.'],
+        onRetry: () => this.printLabel1to1(),
+      });
     }
   }
 
@@ -1134,10 +1197,14 @@ export class PanelBuddyApp {
         try {
           const parsed = JSON.parse(re.target.result);
           this.handleBlockLoaded(parsed, { title: file.name });
-        } catch (_) {
-          alert('Invalid panel JSON');
+        } catch (err) {
+          S().showProblem(err.name === 'SyntaxError' ? 'bad_json' : 'bad_input', {
+            subject: file.name, detail: err.message,
+            fix: ['Open a panel block saved by this editor (.json, blockType panel).'],
+          });
         }
       };
+      reader.onerror = () => S().showProblem('file_unreadable', { subject: file.name, detail: reader.error && reader.error.message });
       reader.readAsText(file);
     };
     input.click();
