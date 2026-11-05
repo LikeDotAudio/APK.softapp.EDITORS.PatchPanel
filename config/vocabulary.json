@@ -1,0 +1,96 @@
+{
+  "about": "What this editor draws (ROAD-3501). Each symbol is one of the connector icons in js/cadConnectorSymbols.js, tied by abbreviation to its entry in the CAD catalogue (vendor/apk-vocabulary), which supplies its description, group, channels, cutout class and footprint. A symbol with abbreviation null has no catalogue entry and carries its own desc and category here. Labels are what a saved port stores, so they stay as they were.",
+  "connectors": {
+    "aliases": {
+      "XLR-F": "X3S",
+      "XLR-M": "X3P",
+      "EtherCON": "ECON"
+    }
+  },
+  "symbols": [
+    {
+      "id": "xlr-f",
+      "label": "XLR Female",
+      "color": "#10B981",
+      "abbreviation": "X3S"
+    },
+    {
+      "id": "xlr-m",
+      "label": "XLR Male",
+      "color": "#38BDF8",
+      "abbreviation": "X3P"
+    },
+    {
+      "id": "bnc",
+      "label": "BNC Coax",
+      "color": "#F59E0B",
+      "abbreviation": "BNC"
+    },
+    {
+      "id": "ethercon",
+      "label": "EtherCON",
+      "color": "#38BDF8",
+      "abbreviation": "ECON"
+    },
+    {
+      "id": "rj45",
+      "label": "RJ45 LAN",
+      "color": "#38BDF8",
+      "abbreviation": "RJ45"
+    },
+    {
+      "id": "opticalcon",
+      "label": "OpticalCON",
+      "color": "#EC4899",
+      "abbreviation": "OC2"
+    },
+    {
+      "id": "speakon",
+      "label": "SpeakON",
+      "color": "#3B82F6",
+      "abbreviation": "SPK4S"
+    },
+    {
+      "id": "trs",
+      "label": "1/4\" TRS",
+      "color": "#10B981",
+      "abbreviation": "TRSS"
+    },
+    {
+      "id": "bantam-tt",
+      "label": "TT Bantam",
+      "color": "#F59E0B",
+      "abbreviation": "TT"
+    },
+    {
+      "id": "hdmi",
+      "label": "HDMI 2.1",
+      "color": "#8B5CF6",
+      "abbreviation": "HDMI"
+    },
+    {
+      "id": "usbc",
+      "label": "USB-C",
+      "color": "#6366F1",
+      "abbreviation": "USB-C"
+    },
+    {
+      "id": "powercon",
+      "label": "PowerCON",
+      "color": "#EF4444",
+      "abbreviation": "PC20BS"
+    },
+    {
+      "id": "dsub25",
+      "label": "DB-25",
+      "color": "#14B8A6",
+      "abbreviation": "A59S"
+    },
+    {
+      "id": "blank",
+      "label": "Blank Plate",
+      "color": "#52525b",
+      "abbreviation": "BLANK"
+    }
+  ]
+}
