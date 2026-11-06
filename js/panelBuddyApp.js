@@ -20,6 +20,7 @@ import { libraryButton, bimFields } from './bimLibrary.js';
 import { generateCadPanelDxf } from './cadDxfGenerator.js';
 import { downloadPanelDxf, openInCadLikeAudio } from './cadLikeAudioBridge.js';
 import { createPortTables, fillEndpointsFromThings } from './portTables.js';
+import { panelToIfc, panelFromIfc, schemaOf } from './panelIfc.js';
 
 const S = () => window.APKSoftapp;
 
@@ -64,7 +65,8 @@ export class PanelBuddyApp {
         { name: 'Discovered devices', from: 'APKSoftapp.discovered() on the bus, kinds from config/discovery.json', kind: 'bus' },
       ],
       outputs: [
-        { name: 'Panel block', to: 'the CAD drawing on Save, or a panel_<name>.json download standalone', kind: 'cad' },
+        { name: 'Panel block', to: 'the CAD drawing on Save; standalone, panel_<name>.json beside its .ifc twin (Save Model)', kind: 'cad' },
+        { name: 'IFC twin', to: 'panel_<name>.ifc (IFC4X3_ADD2) with the .json when standalone: the panel an IfcDistributionBoard DISTRIBUTIONFRAME (a wall plate an IfcOutlet), each port an IfcDistributionPort, each endpoint joined by IfcRelConnectsPorts', kind: 'file' },
         { name: 'Live edits', to: 'the CAD after every change (blockChanged)', kind: 'cad' },
         { name: 'Schedule', to: '<name>_schedule.csv (paired or linear, as the table shows)', kind: 'file' },
         { name: 'Drawing', to: '<name>_cad_<view>.svg and <name>_fabrication.dxf', kind: 'file' },
@@ -82,9 +84,9 @@ export class PanelBuddyApp {
         { name: 'Port table', how: 'paired or linear: edit label, connector, endpoint, signal, normalling' },
         { name: 'Hardware / label model', how: 'pick a vendor and model from the BIM library to set pitch, window height, datum, strip width' },
         { name: 'Fill endpoints from discovered', how: 'give each empty endpoint the next device on the bus (by MAC / serial)' },
-        { name: 'Open / Save / ✕', how: 'open a .json, save into the CAD (or download), close the editor' },
+        { name: 'Open / Save / ✕', how: 'open a panel .json or .ifc, save into the CAD (standalone: the .json and its .ifc twin), close the editor' },
       ],
-      problems: ['bad_json', 'bad_input', 'file_unreadable', 'http_not_found', 'fetch_failed', 'bus_missing', 'permission_denied', 'not_in_cad'],
+      problems: ['bad_json', 'bad_input', 'file_unreadable', 'http_not_found', 'fetch_failed', 'bus_missing', 'permission_denied', 'not_in_cad', 'save_failed'],
     });
     this.host = S().connectHost({
       editor: 'Panel Buddy',
@@ -1064,9 +1066,29 @@ export class PanelBuddyApp {
     return { title: this.panel.name, filename: `panel_${String(this.panel.name || 'panel').toLowerCase().replace(/[^a-z0-9]/g, '_')}` };
   }
 
-  /** Save: into the drawing inside the CAD, a .json download standalone. */
-  saveBlock() {
-    this.host.save(this.toBlock(), this.blockMeta());
+  /** Save: into the drawing inside the CAD. Standalone: the block and its .ifc twin, both or neither (Save Model). */
+  async saveBlock() {
+    const block = this.toBlock();
+    const meta = this.blockMeta();
+    const A = S();
+    if (this.host.embedded || typeof A.saveModel !== 'function') return this.host.save(block, meta);
+    const r = await A.saveModel(block, { name: meta.filename, toIfc: (b) => panelToIfc(b, { name: meta.filename }) });
+    if (!r.ok && !r.cancelled) A.showProblem(r.problem || 'save_failed', { onRetry: () => this.saveBlock() });
+    return r.ok ? r.via : '';
+  }
+
+  /** An IFC model's patch panel (panelIfc.js); false (and a problem card) when it holds none. */
+  loadIfc(text, name) {
+    let block;
+    try {
+      block = panelFromIfc(text);
+    } catch (err) {
+      S().showProblem('bad_input', { subject: name, detail: err.message, fix: ['Open an .ifc saved by this editor, or one with an IfcDistributionBoard (DISTRIBUTIONFRAME) or IfcOutlet and its ports.'] });
+      return false;
+    }
+    this.handleBlockLoaded(block, { title: `${name} · ${schemaOf(text)}` });
+    this.changed();
+    return true;
   }
 
   exportCsv() {
@@ -1138,7 +1160,16 @@ export class PanelBuddyApp {
     openInCadLikeAudio(this.panel, { onStatus: (text, state) => this.sayStatus(text, state) });
   }
 
-  promptOpen() {
+  /** Open a panel .json or an IFC model (.ifc; an ISO 10303-21 header decides for any other name). */
+  async promptOpen() {
+    const A = S();
+    if (typeof A.openModel === 'function') {
+      const r = await A.openModel({});
+      if (!r.ok) { if (!r.cancelled) A.showProblem(r.problem, { onRetry: () => this.promptOpen() }); return; }
+      if (r.kind === 'ifc') this.loadIfc(r.text, r.name);
+      else { this.handleBlockLoaded(r.model, { title: r.name }); this.changed(); }
+      return;
+    }
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';

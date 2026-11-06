@@ -9,6 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { world, ORIGIN } from './softappWorld.mjs';
 import { PanelBuddyApp } from '../js/panelBuddyApp.js';
+import { panelToIfc, panelFromIfc } from '../js/panelIfc.js';
 import { pairedRows, applyPairedEdit, fillEndpointsFromThings } from '../js/portTables.js';
 import { openInCadLikeAudio, CAD_HOST_PROTOCOL } from '../js/cadLikeAudioBridge.js';
 
@@ -64,13 +65,21 @@ test('a stranger, or the old private APK_LOAD_BLOCK, changes nothing', () => {
   assert.equal(app.panel.name, 'PP-AUDIO-01');
 });
 
-test('standalone: Save downloads the panel as .json', () => {
+test('standalone: Save is Save Model — the panel .json AND its .ifc twin, the .ifc first', async () => {
   const w = world({ framed: false });
-  const app = headlessApp(w);
-  app.handleBlockLoaded(BLOCK, {});
-  app.saveBlock();
-  assert.equal(w.downloads[0].name, 'panel_pp_9.json');
-  assert.equal(JSON.parse(w.downloads[0].text).pairs.length, 2);
+  globalThis.window = w.win;   // the app reads window.APKSoftapp
+  try {
+    const app = headlessApp(w);
+    app.handleBlockLoaded(BLOCK, {});
+    assert.equal(await app.saveBlock(), 'download');
+    assert.deepEqual(w.downloads.map((d) => d.name), ['panel_pp_9.ifc', 'panel_pp_9.json']);
+    const block = JSON.parse(w.downloads[1].text);
+    assert.equal(block.pairs.length, 2);
+    assert.equal(w.downloads[0].text, panelToIfc(block, { name: 'panel_pp_9' }));
+    assert.equal(panelFromIfc(w.downloads[0].text).pairs[0].normalling, 'full');
+  } finally {
+    delete globalThis.window;
+  }
 });
 
 test('paired rows: both rows exist, normalling edits land on both ports', () => {
