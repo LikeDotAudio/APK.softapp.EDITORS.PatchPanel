@@ -8,7 +8,7 @@
        python3 .apk.scripts/gen_vocabulary.py --check   (check.sh lane: vocabulary).
 
    307 connectors (abbreviation, description, group, channels, cutout class,
-   and a datasheet footprint in mm where the CAD has one), 170 signal formats
+   and a datasheet footprint in mm where the CAD has one), 174 signal formats
    (the CAD's flows: networked audio, ST 2110, NMOS, MXL, streams, codecs, media),
    15 signal classes (the CAD's EssenceCategory), legacy spellings.
 
@@ -410,10 +410,14 @@
     {"abbreviation":"QLAN-TX8","description":"Q-LAN transmit stream, 8 channels (generated, unicast)","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"QLAN-TX16","description":"Q-LAN transmit stream, 16 channels (generated, unicast)","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"QLAN","description":"Q-LAN stream — QSC Q-SYS audio-over-IP: unicast RTP, 32-bit float, up to 16 channels per stream, PTPv2-clocked","group":"Audio-Networked","class":"audio"},
+    {"abbreviation":"AES67","description":"AES67 — the AES standard for audio-over-IP interoperability: L16 / L24 PCM over RTP, PTPv2-clocked, SDP-described; Dante, RAVENNA, Q-LAN and ST 2110-30 meet in it. The canonical word for any port that says AES67.","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"AES67-RX","description":"AES67 receive flow (consumed)","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"AES67-TX","description":"AES67 transmit flow (generated, multicast) — the same wire format as ST 2110-30 (see the ST-2110 tab)","group":"Audio-Networked","class":"audio"},
+    {"abbreviation":"RAVENNA","description":"RAVENNA — ALC NetworX's IP media networking technology (AES67-compatible streams, PTPv2-clocked). The canonical word for any port that says RAVENNA.","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"RAVENNA-RX","description":"RAVENNA receive stream (consumed; AES67-compatible)","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"RAVENNA-TX","description":"RAVENNA transmit stream (generated, multicast; AES67-compatible)","group":"Audio-Networked","class":"audio"},
+    {"abbreviation":"WHEATNET-IP","description":"WheatNet-IP — Wheatstone's audio-over-IP network for broadcast plants (AES67-compatible).","group":"Audio-Networked","class":"audio"},
+    {"abbreviation":"SOUNDGRID","description":"SoundGrid — Waves' Ethernet audio network linking SoundGrid I/O, DSP servers and host computers.","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"MILAN","description":"AVB / Milan stream — IEEE 1722 AVTP over TSN (Layer 2: no IP multicast group)","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"DANTE-AV","description":"Dante AV — video (and embedded audio) over Dante","group":"Audio-Networked","class":"video"},
     {"abbreviation":"ST2110-10","description":"System timing & definitions — PTP (IEEE 1588, ST 2059-2 profile), RTP/UDP over IPv4 multicast (IGMPv3) or unicast; UDP ≤ 1460 octets (8960 extended, signalled MAXUDP); one SDP per stream with mediaclk + ts-refclk","group":"ST-2110","class":"control"},
