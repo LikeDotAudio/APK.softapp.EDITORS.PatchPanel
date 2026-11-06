@@ -3,7 +3,7 @@
 /* apk-vocabulary.js — THE ONE CONNECTOR AND SIGNAL-FORMAT VOCABULARY. window.APKVocabulary.
 
    GENERATED — do not edit. Made from the CAD's connector catalogue
-   (EDITORS.CAD.Like.audio/src/connectors (ConnectorLookup.ts, multipin.ts, cutoutClasses.ts, cutoutGeometry.ts, adapterRules.ts, ipMediaConnectors.ts))
+   (contracts/ifc/signal-formats.json + EDITORS.CAD.Like.audio/src/connectors (ConnectorLookup.ts, panelConnectors.ts, multipin.ts, cutoutClasses.ts, cutoutGeometry.ts, adapterRules.ts))
    by  python3 .apk.scripts/gen_vocabulary.py   and held to it by
        python3 .apk.scripts/gen_vocabulary.py --check   (check.sh lane: vocabulary).
 
@@ -29,7 +29,7 @@
     return o;
   }
   var DATA = deepFreeze({
-  "source": "EDITORS.CAD.Like.audio/src/connectors (ConnectorLookup.ts, multipin.ts, cutoutClasses.ts, cutoutGeometry.ts, adapterRules.ts, ipMediaConnectors.ts)",
+  "source": "contracts/ifc/signal-formats.json + EDITORS.CAD.Like.audio/src/connectors (ConnectorLookup.ts, panelConnectors.ts, multipin.ts, cutoutClasses.ts, cutoutGeometry.ts, adapterRules.ts)",
   "signalClasses": ["video","audio","ancillary","container","image","logic_bool","numeric","text","universal","control","transport_ip","physical_audio","physical_video","physical_network","physical_power"],
   "cutouts": {"D":"D hole (standard)","keyed":"Keyed D hole","oversize-D":"Oversize D hole","square":"Square hole"},
   "spellings": {"AES72-Type 1E":"AES72 Type 1E","AES72-Type 1O":"AES72 Type 1O","AES72-Type 1M":"AES72 Type 1M","AES72-Type 2O":"AES72 Type 2O","AES72-Type 3E":"AES72 Type 3E","AES72-Type 3M":"AES72 Type 3M","AES72-Type 4E":"AES72 Type 4E","AES72-Type 5E":"AES72 Type 5E","AES72-Type 6E":"AES72 Type 6E","8P8C":"RJ45","USBA":"USB-A","USBC":"USB-C","AC-Power":"Power-AC","RS232":"RS-232","DB9":"DB-9","IEC C13":"C13","VIRTUAL":"NONE"},
@@ -60,17 +60,16 @@
     {"name":"TRIAX","description":"Triaxial broadcast connectors — three-conductor coax — for broadcast camera control.","kind":"connector"},
     {"name":"USB","description":"Universal Serial Bus connectors — Type-A, Type-B, Type-C, Mini, Micro.","kind":"connector"},
     {"name":"Video","description":"Video signal connectors — BNC, HD-BNC, DIN 1.0/2.3, HDMI, DisplayPort, DVI — for SDI and HDMI distribution.","kind":"connector"},
-    {"name":"Video","description":"Video signal connectors — BNC, HD-BNC, DIN 1.0/2.3, HDMI, DisplayPort, DVI — for SDI and HDMI distribution.","kind":"format"},
     {"name":"Robo","description":"Robo rugged multipin connectors — heavy-duty circular multipin for robotic-camera, motor, and field-power tails. Require an oversize-D panel cutout (§5).","kind":"connector"},
     {"name":"WireTerminal","description":"Wire termination points — terminal blocks with screw or push terminals.","kind":"connector"},
     {"name":"Audio-Networked","description":"Networked audio — Dante, DDM Manager, Q-LAN, AES67 and other audio-over-IP flows; transmitters generate flows (multicast, or unicast for Q-LAN), receivers subscribe.","kind":"format"},
     {"name":"ST-2110","description":"SMPTE ST 2110 professional media over managed IP — essence flows carried on a network interface (not physical connectors)","kind":"format"},
-    {"name":"SMPTE-Audio","description":"SMPTE audio carriage — audio embedded in HD-SDI, non-PCM bitstreams (AC-3, E-AC-3, AAC) inside AES3, and the standard track and channel layouts. Signal formats, not physical connectors.","kind":"format"},
     {"name":"NMOS","description":"AMWA NMOS — discovery, registration and connection management for ST 2110 / IP media nodes","kind":"format"},
-    {"name":"MXL","description":"EBU DMF Media eXchange Layer — zero-copy media exchange between software media functions (containers) through shared-memory flows, or across hosts over a fabric. Flows are described by NMOS IS-04 Flow JSON and identified by UUID.","kind":"format"},
     {"name":"IP-Streaming","description":"IP streaming protocols — real-time RTP/RTSP, web streaming (HLS, DASH, CMAF, WebRTC) and broadcast / IPTV transport (multicast, MPEG-TS, SRT, RIST, Zixi).","kind":"format"},
     {"name":"AV-over-IP","description":"AV-over-IP systems — NDI, SDVoE and vendor encoder / decoder platforms carrying video and audio on a LAN. Dante, Dante AV, AES67 and ST 2110 are in their own families.","kind":"format"},
     {"name":"VoIP","description":"VoIP / unified communications signalling — the call set-up protocols; the voice itself is RTP (IP-Streaming) coded with G.711, G.722 or Opus (Codecs-Audio). WebRTC is in IP-Streaming.","kind":"format"},
+    {"name":"MXL","description":"EBU DMF Media eXchange Layer — zero-copy media exchange between software media functions (containers) through shared-memory flows, or across hosts over a fabric. Flows are described by NMOS IS-04 Flow JSON and identified by UUID.","kind":"format"},
+    {"name":"SMPTE-Audio","description":"SMPTE audio carriage — audio embedded in HD-SDI, non-PCM bitstreams (AC-3, E-AC-3, AAC) inside AES3, and the standard track and channel layouts. Signal formats, not physical connectors.","kind":"format"},
     {"name":"Codecs-Audio","description":"Audio codecs — how audio is coded: uncompressed PCM, lossless (FLAC, ALAC) and lossy (MP3, AAC, Opus, the G.7xx voice codecs). VoIP uses G.711 / G.722 / Opus; streaming AAC / MP3 / Opus.","kind":"format"},
     {"name":"Codecs-Video","description":"Video codecs — legacy (MPEG-1/-2, MPEG-4 Part 2), current (H.264, H.265, AV1 …) and professional / broadcast (JPEG 2000, ProRes, DNx, XAVC …). JPEG XS is ST 2110-22.","kind":"format"},
     {"name":"Codecs-Container","description":"Audio / video containers — the wrappers that hold coded audio, video, subtitles and metadata. MPEG-TS is the container; MPEG-TS-UDP (IP-Streaming) is the transport.","kind":"format"},
@@ -387,7 +386,6 @@
     {"abbreviation":"TB##","description":"Terminal Block. ## = number of connections","group":"WireTerminal","channels":null,"cutout":"D"}
   ],
   "formats": [
-    {"abbreviation":"DANTE-AV","description":"Dante AV — video (and embedded audio) over Dante","group":"Video","class":"video"},
     {"abbreviation":"DANTE-RX2","description":"Dante receive flow, 2 channels (consumed)","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"DANTE-RX8","description":"Dante receive flow, 8 channels (consumed)","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"DANTE-RX16","description":"Dante receive flow, 16 channels (consumed)","group":"Audio-Networked","class":"audio"},
@@ -417,6 +415,7 @@
     {"abbreviation":"RAVENNA-RX","description":"RAVENNA receive stream (consumed; AES67-compatible)","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"RAVENNA-TX","description":"RAVENNA transmit stream (generated, multicast; AES67-compatible)","group":"Audio-Networked","class":"audio"},
     {"abbreviation":"MILAN","description":"AVB / Milan stream — IEEE 1722 AVTP over TSN (Layer 2: no IP multicast group)","group":"Audio-Networked","class":"audio"},
+    {"abbreviation":"DANTE-AV","description":"Dante AV — video (and embedded audio) over Dante","group":"Audio-Networked","class":"video"},
     {"abbreviation":"ST2110-10","description":"System timing & definitions — PTP (IEEE 1588, ST 2059-2 profile), RTP/UDP over IPv4 multicast (IGMPv3) or unicast; UDP ≤ 1460 octets (8960 extended, signalled MAXUDP); one SDP per stream with mediaclk + ts-refclk","group":"ST-2110","class":"control"},
     {"abbreviation":"ST2110-20","description":"Uncompressed active video — RFC 4175-based, 90 kHz clock, video/raw; YCbCr / RGB / ICtCp 4:4:4 / 4:2:2 / 4:2:0 at 8-16 bit; BT.709 / BT.2020 / BT.2100; GPM or BPM packing","group":"ST-2110","class":"video"},
     {"abbreviation":"ST2110-21","description":"Traffic shaping & delivery timing for video senders — TP=2110TPN (narrow, gapped), 2110TPNL (narrow linear) or 2110TPW (wide, software); receivers N / W / A","group":"ST-2110","class":"video"},
@@ -434,15 +433,6 @@
     {"abbreviation":"ST2110-41","description":"Fast metadata framework","group":"ST-2110","class":"ancillary"},
     {"abbreviation":"ST2110-43","description":"Timed text markup (TTML)","group":"ST-2110","class":"ancillary"},
     {"abbreviation":"ST2022-7","description":"Seamless protection switching — identical RTP streams on two paths (red / blue), rebuilt packet by packet; receiver skew class A ≤ 10 ms, B ≤ 50 ms, C ≤ 150 / 450 ms; signalled a=group:DUP in 2110","group":"ST-2110","class":"transport_ip"},
-    {"abbreviation":"ST299-1","description":"SMPTE ST 299-1 — 24-bit AES3 audio embedded in HD-SDI (ST 292-1): 4 groups × 4 ch = 16 ch at 48 kHz (8 at 96 kHz), data in C-stream HANC; group data DIDs 2E7h / 1E6h / 1E5h / 2E4h, control 1E3h / 2E2h / 2E1h / 1E0h","group":"SMPTE-Audio","class":"audio"},
-    {"abbreviation":"ST337","description":"SMPTE ST 337 — non-PCM audio / data in AES3: bursts led by Pa/Pb sync (16-bit F872h / 4E1Fh), Pc burst_info, Pd length; channel-status non-audio bit set; frame mode (one burst over both subframes, ≤ 7 streams) or subframe mode (≤ 14)","group":"SMPTE-Audio","class":"audio"},
-    {"abbreviation":"ST339","description":"SMPTE ST 339 — ST 337 generic data types: 0 null, 2 time stamp (stream 7, LTC + sample count), 3 pause, 26 utility (V-sync marker), 30 user-defined","group":"SMPTE-Audio"},
-    {"abbreviation":"ST340-AC3","description":"SMPTE ST 340 — AC-3 (Dolby Digital, ATSC A/52) in AES3 via ST 337: data_type 1, one 1536-sample sync frame per burst (32 ms at 48 kHz); AES3 rate must equal the audio rate","group":"SMPTE-Audio","class":"audio"},
-    {"abbreviation":"ST340-EAC3","description":"SMPTE ST 340 — E-AC-3 (Dolby Digital Plus) in AES3 via ST 337: data_type 16, 1536-frame burst period, frame mode only, 3324-frame (69.25 ms) decode latency","group":"SMPTE-Audio","class":"audio"},
-    {"abbreviation":"ST2041-2","description":"SMPTE ST 2041-2 — MPEG-2 AAC LC / HE AAC in ADTS over AES3 via ST 337: data_type 7, burst every 1024 frames (2048 with SBR)","group":"SMPTE-Audio"},
-    {"abbreviation":"ST2041-3","description":"SMPTE ST 2041-3 — MPEG-4 AAC (data_type 10, 1024 / 960 frames) and HE AAC v1 / v2 (data_type 11, 2048 / 1920) over AES3 via ST 337, in ADTS or LATM / LOAS","group":"SMPTE-Audio"},
-    {"abbreviation":"ST2035","description":"SMPTE ST 2035 — audio track cases for recorders and embedded / AES3 I/O: tracks 1/2 = AES pair 1, 3/4 = pair 2 …; e.g. case 11c = 5.1 on T1-6 + stereo T7/8, 11d = 5.1 + Lt/Rt, 11e = 5.1 + ST 337 bitstream on T7/8","group":"SMPTE-Audio"},
-    {"abbreviation":"ST2036-2","description":"SMPTE ST 2036-2 — UHDTV 22.2 audio: 24 channels, 48 kHz video-locked (96 kHz optional), 16 / 20 / 24-bit; FL FR / FC LFE1 on AES 1-2 … BtFL BtFR on AES 12; top, middle and bottom layers","group":"SMPTE-Audio"},
     {"abbreviation":"NMOS","description":"NMOS Node — IS-04 discovery & registration / IS-05 connection management API endpoint","group":"NMOS","class":"control"},
     {"abbreviation":"NMOS-IS04","description":"AMWA IS-04 discovery & registration","group":"NMOS","class":"control"},
     {"abbreviation":"NMOS-IS05","description":"AMWA IS-05 device connection management","group":"NMOS","class":"control"},
@@ -451,11 +441,6 @@
     {"abbreviation":"NMOS-IS11","description":"AMWA IS-11 stream compatibility management","group":"NMOS","class":"control"},
     {"abbreviation":"NMOS-BCP-003","description":"AMWA BCP-003 security (TLS, authorization)","group":"NMOS","class":"control"},
     {"abbreviation":"NMOS-REG","description":"NMOS Registry / Controller — server application (IS-04 registry, IS-05 controller)","group":"NMOS","class":"control"},
-    {"abbreviation":"MXL","description":"MXL flow — an EBU DMF Media eXchange Layer flow: a ring buffer in a tmpfs-backed MXL domain that one writer fills and any number of readers map read-only (no packetising, no copy)","group":"MXL"},
-    {"abbreviation":"MXL-VIDEO","description":"MXL discrete video flow — V210 video, read and written as timestamped grains","group":"MXL"},
-    {"abbreviation":"MXL-AUDIO","description":"MXL continuous audio flow — Float32 samples, de-interleaved per channel","group":"MXL"},
-    {"abbreviation":"MXL-ANC","description":"MXL discrete ancillary-data flow — ANC grains (captions, timecode, metadata)","group":"MXL"},
-    {"abbreviation":"MXL-FABRIC","description":"MXL Fabric — flows shared between hosts over a fast fabric (RDMA, EFA), the Fabric API in MXL 1.1+","group":"MXL"},
     {"abbreviation":"RTP","description":"Real-time Transport Protocol — timed media packets over UDP (RFC 3550)","group":"IP-Streaming"},
     {"abbreviation":"RTCP","description":"RTP Control Protocol — reception reports and sync for an RTP session","group":"IP-Streaming"},
     {"abbreviation":"RTSP","description":"Real Time Streaming Protocol — play / pause control of an RTP stream (cameras, encoders)","group":"IP-Streaming"},
@@ -482,6 +467,20 @@
     {"abbreviation":"H.323","description":"H.323 — ITU-T multimedia conferencing signalling (legacy room systems, gateways)","group":"VoIP","class":"control"},
     {"abbreviation":"MGCP","description":"MGCP — Media Gateway Control Protocol (call agent to gateway)","group":"VoIP"},
     {"abbreviation":"SCCP","description":"SCCP — Cisco Skinny Client Control Protocol (Cisco IP phones)","group":"VoIP"},
+    {"abbreviation":"MXL","description":"MXL flow — an EBU DMF Media eXchange Layer flow: a ring buffer in a tmpfs-backed MXL domain that one writer fills and any number of readers map read-only (no packetising, no copy)","group":"MXL"},
+    {"abbreviation":"MXL-VIDEO","description":"MXL discrete video flow — V210 video, read and written as timestamped grains","group":"MXL"},
+    {"abbreviation":"MXL-AUDIO","description":"MXL continuous audio flow — Float32 samples, de-interleaved per channel","group":"MXL"},
+    {"abbreviation":"MXL-ANC","description":"MXL discrete ancillary-data flow — ANC grains (captions, timecode, metadata)","group":"MXL"},
+    {"abbreviation":"MXL-FABRIC","description":"MXL Fabric — flows shared between hosts over a fast fabric (RDMA, EFA), the Fabric API in MXL 1.1+","group":"MXL"},
+    {"abbreviation":"ST299-1","description":"SMPTE ST 299-1 — 24-bit AES3 audio embedded in HD-SDI (ST 292-1): 4 groups × 4 ch = 16 ch at 48 kHz (8 at 96 kHz), data in C-stream HANC; group data DIDs 2E7h / 1E6h / 1E5h / 2E4h, control 1E3h / 2E2h / 2E1h / 1E0h","group":"SMPTE-Audio","class":"audio"},
+    {"abbreviation":"ST337","description":"SMPTE ST 337 — non-PCM audio / data in AES3: bursts led by Pa/Pb sync (16-bit F872h / 4E1Fh), Pc burst_info, Pd length; channel-status non-audio bit set; frame mode (one burst over both subframes, ≤ 7 streams) or subframe mode (≤ 14)","group":"SMPTE-Audio","class":"audio"},
+    {"abbreviation":"ST339","description":"SMPTE ST 339 — ST 337 generic data types: 0 null, 2 time stamp (stream 7, LTC + sample count), 3 pause, 26 utility (V-sync marker), 30 user-defined","group":"SMPTE-Audio"},
+    {"abbreviation":"ST340-AC3","description":"SMPTE ST 340 — AC-3 (Dolby Digital, ATSC A/52) in AES3 via ST 337: data_type 1, one 1536-sample sync frame per burst (32 ms at 48 kHz); AES3 rate must equal the audio rate","group":"SMPTE-Audio","class":"audio"},
+    {"abbreviation":"ST340-EAC3","description":"SMPTE ST 340 — E-AC-3 (Dolby Digital Plus) in AES3 via ST 337: data_type 16, 1536-frame burst period, frame mode only, 3324-frame (69.25 ms) decode latency","group":"SMPTE-Audio","class":"audio"},
+    {"abbreviation":"ST2041-2","description":"SMPTE ST 2041-2 — MPEG-2 AAC LC / HE AAC in ADTS over AES3 via ST 337: data_type 7, burst every 1024 frames (2048 with SBR)","group":"SMPTE-Audio"},
+    {"abbreviation":"ST2041-3","description":"SMPTE ST 2041-3 — MPEG-4 AAC (data_type 10, 1024 / 960 frames) and HE AAC v1 / v2 (data_type 11, 2048 / 1920) over AES3 via ST 337, in ADTS or LATM / LOAS","group":"SMPTE-Audio"},
+    {"abbreviation":"ST2035","description":"SMPTE ST 2035 — audio track cases for recorders and embedded / AES3 I/O: tracks 1/2 = AES pair 1, 3/4 = pair 2 …; e.g. case 11c = 5.1 on T1-6 + stereo T7/8, 11d = 5.1 + Lt/Rt, 11e = 5.1 + ST 337 bitstream on T7/8","group":"SMPTE-Audio"},
+    {"abbreviation":"ST2036-2","description":"SMPTE ST 2036-2 — UHDTV 22.2 audio: 24 channels, 48 kHz video-locked (96 kHz optional), 16 / 20 / 24-bit; FL FR / FC LFE1 on AES 1-2 … BtFL BtFR on AES 12; top, middle and bottom layers","group":"SMPTE-Audio"},
     {"abbreviation":"PCM","description":"PCM — uncompressed pulse-code modulation audio","group":"Codecs-Audio","class":"audio"},
     {"abbreviation":"LPCM","description":"LPCM — linear PCM (uncompressed, e.g. 24-bit / 48 kHz)","group":"Codecs-Audio","class":"audio"},
     {"abbreviation":"AES67-L24","description":"AES67 audio stream payload — L24 / L16 linear PCM over RTP","group":"Codecs-Audio","class":"audio"},
