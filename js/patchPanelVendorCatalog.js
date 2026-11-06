@@ -1,57 +1,17 @@
 /**
  * Patch Panel Vendor Catalog & Hardware Geometry Index
  *
- * Index of 2,174 verified patch panel and patchbay models across 15 manufacturers:
- * ADC, Argosy, Audio Accessories, Bittree, Canare, Canford, CommScope, Leviton,
- * Neutrik, Panduit, Pinanson, Signex, Switchcraft, Tripp Lite, Van Damme.
+ * The patch panels and patchbays the BIM library holds (2,174 parts with panel
+ * geometry, read from it — this file keeps no list of makers or models of its own:
+ * a panel is picked with 📚 Library, ROAD-3572/3597).
  *
  * Provides exact physical pitch (P), window height (H), rack units, datum offset (X0),
  * and chassis retaining mechanisms for 1:1 CAD panel visualizer and label maker.
  */
 
-export const VENDORS = [
-  'ADC',
-  'Argosy',
-  'Audio Accessories',
-  'Bittree',
-  'Canare',
-  'Canford',
-  'CommScope',
-  'Leviton',
-  'Neutrik',
-  'Panduit',
-  'Pinanson',
-  'Signex',
-  'Switchcraft',
-  'Tripp Lite',
-  'Van Damme'
-];
-
-export const VENDOR_KEY_MAP = {
-  'adc': 'ADC',
-  'argosy': 'Argosy',
-  'audio accessories': 'Audio_Accessories',
-  'audio_accessories': 'Audio_Accessories',
-  'bittree': 'Bittree',
-  'canare': 'Canare',
-  'canford': 'Canford',
-  'commscope': 'CommScope',
-  'leviton': 'Leviton',
-  'neutrik': 'Neutrik',
-  'panduit': 'Panduit',
-  'pinanson': 'Pinanson',
-  'signex': 'Signex',
-  'switchcraft': 'Switchcraft',
-  'tripp lite': 'Tripp_Lite',
-  'tripp_lite': 'Tripp_Lite',
-  'van damme': 'Van_Damme',
-  'van_damme': 'Van_Damme'
-};
-
 // Internal model cache
 let catalogCache = null;
 let catalogFault = null; // what stopped the last read of the BIM library, or null
-let vendorCache = new Map();
 
 /**
  * Standardize model object to full physical preset
@@ -212,78 +172,6 @@ export async function loadMasterCatalog(_basePath) {
 /** What stopped the last BIM library read (thrown error / HTTP answer), or null. An empty catalogue is retried on the next load. */
 export function catalogError() {
   return catalogFault;
-}
-
-/**
- * Load models for a specific vendor (filtered from the master catalogue).
- */
-export async function loadVendorModels(vendorName, _basePath) {
-  const normKey = vendorName.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
-  const fileKey = VENDOR_KEY_MAP[normKey] || vendorName.replace(/\s+/g, '_');
-  if (vendorCache.has(fileKey)) {
-    return vendorCache.get(fileKey);
-  }
-  const all = await loadMasterCatalog();
-  const want = vendorName.toLowerCase();
-  const list = all.filter(m => m.make.toLowerCase() === want || m.make.toLowerCase() === normKey);
-  vendorCache.set(fileKey, list);
-  return list;
-}
-
-/**
- * Get available vendor names
- */
-export function getVendors() {
-  return [...VENDORS];
-}
-
-/**
- * Search the catalog with optional filters
- */
-export function searchModels(models, { query = '', vendor = '', rackUnits = '', portCount = null, type = '', limit = 100 } = {}) {
-  if (!Array.isArray(models)) return [];
-
-  const q = query.trim().toLowerCase();
-  const v = vendor.trim().toLowerCase();
-  const ru = rackUnits.trim().toUpperCase();
-  const t = type.trim().toLowerCase();
-  const pc = portCount ? Number(portCount) : null;
-
-  const results = [];
-  for (const m of models) {
-    if (v && m.make.toLowerCase() !== v) continue;
-    if (ru && m.rackUnits.toUpperCase() !== ru) continue;
-    if (pc && Number(m.portCount) !== pc) continue;
-    if (t && m.type.toLowerCase() !== t) continue;
-
-    if (q) {
-      const match =
-        m.model.toLowerCase().includes(q) ||
-        m.make.toLowerCase().includes(q) ||
-        m.type.toLowerCase().includes(q) ||
-        String(m.portCount).includes(q) ||
-        String(m.rackUnits).toLowerCase().includes(q);
-      if (!match) continue;
-    }
-
-    results.push(m);
-    if (results.length >= limit) break;
-  }
-
-  return results;
-}
-
-/**
- * Find model by exact model code or index
- */
-export function findModel(models, identifier) {
-  if (!Array.isArray(models)) return null;
-  const idStr = String(identifier).trim().toLowerCase();
-  return models.find(m =>
-    String(m.index) === idStr ||
-    m.model.toLowerCase() === idStr ||
-    `${m.make} ${m.model}`.toLowerCase() === idStr
-  ) || null;
 }
 
 /**

@@ -18,11 +18,7 @@ import {
   generatePrintableSheetHtml,
 } from '../js/patchLabelGeometryEngine.js';
 import {
-  VENDORS,
   loadMasterCatalog,
-  loadVendorModels,
-  searchModels,
-  findModel,
   modelToMechanicalPreset
 } from '../js/patchPanelVendorCatalog.js';
 import { generateCadPanelDxf } from '../js/cadDxfGenerator.js';
@@ -219,32 +215,18 @@ test('Mechanical Label Geometry Engine: Port Pitch, Datum Offset, Auto-fit & Cal
   assert.ok(html.includes('11in 8.5in'));
 });
 
-test('Patch Panel Hardware Vendor Catalog & Geometry Index', async () => {
-  // Test 1: 15 Manufacturers
-  assert.equal(VENDORS.length, 15);
-  assert.ok(VENDORS.includes('Bittree'));
-  assert.ok(VENDORS.includes('Switchcraft'));
-  assert.ok(VENDORS.includes('Neutrik'));
-  assert.ok(VENDORS.includes('ADC'));
-  assert.ok(VENDORS.includes('Canare'));
-
-  // Test 2: Ingest Master Index (2,174 models)
+test('Patch panel hardware geometry, read from the BIM library (no maker list of its own)', async () => {
   const allModels = await loadMasterCatalog();
   assert.equal(allModels.length, 2174);
-
-  // Test 3: Load Individual Vendor Models
-  const bittreeModels = await loadVendorModels('Bittree');
-  assert.equal(bittreeModels.length, 145);
-  const bit0005 = findModel(bittreeModels, 'BIT-0005');
+  assert.equal(new Set(allModels.map((m) => m.make)).size, 15, 'the makers are whatever the library holds');
+  const bit0005 = allModels.find((m) => m.model === 'BIT-0005');
   assert.ok(bit0005);
   assert.equal(bit0005.make, 'Bittree');
-  assert.equal(bit0005.model, 'BIT-0005');
   assert.equal(bit0005.portCount, 24);
   assert.equal(bit0005.rackUnits, '1U');
   assert.equal(bit0005.portPitchInches, 0.4);
   assert.equal(bit0005.portPitchMm, 10.16);
 
-  // Test 4: Convert Vendor Hardware Model to Mechanical Geometry Preset
   const preset = modelToMechanicalPreset(bit0005);
   assert.ok(preset.id.includes('bittree_bit_0005'));
   assert.equal(preset.portCount, 24);
@@ -253,20 +235,10 @@ test('Patch Panel Hardware Vendor Catalog & Geometry Index', async () => {
   assert.equal(preset.stripWidthMm, 430.0);
   assert.ok(preset.datumMm > 0);
 
-  // Verify Geometry Engine computes exact millimeter centers for this hardware
   const port0Geom = computePortGeometry(preset, 0);
   const port1Geom = computePortGeometry(preset, 1);
   assert.equal(port0Geom.centerX, preset.datumMm);
   assert.equal(Math.round((port1Geom.centerX - port0Geom.centerX) * 100) / 100, 10.16);
-
-  // Test 5: Search Catalog with Filter Matrix
-  const search2U = searchModels(allModels, { rackUnits: '2U', limit: 20 });
-  assert.equal(search2U.length, 20);
-  search2U.forEach(m => assert.equal(m.rackUnits, '2U'));
-
-  const searchNeutrik = searchModels(allModels, { vendor: 'Neutrik', limit: 50 });
-  assert.equal(searchNeutrik.length, 50);
-  searchNeutrik.forEach(m => assert.equal(m.make, 'Neutrik'));
 });
 
 test('CAD Multi-Archetype Faceplate Rendering for All Equipment Models', () => {
