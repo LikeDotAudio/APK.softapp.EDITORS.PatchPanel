@@ -285,3 +285,35 @@ export function findModel(models, identifier) {
     `${m.make} ${m.model}`.toLowerCase() === idStr
   ) || null;
 }
+
+/**
+ * A part picked from the BIM library (📚 Library, ROAD-3572: {bim, ref}) → the row
+ * applyHardwareModel takes. The pick carries the block view; the panel geometry
+ * (ext.patch_panel) is on the full part, which the ref resolves to on the live
+ * library (ref.url /api/bim/parts/<id>), else in this page's catalogue read. A part
+ * with no geometry anywhere (the published snapshot) is still placed: its port count
+ * and rack units from the block view, the label geometry the generic preset's.
+ */
+export async function rowForLibraryItem(item, { fetcher = globalThis.fetch, catalog = null } = {}) {
+  const bim = item && item.bim;
+  if (!bim || !bim.id) return null;
+  let row = partToVendorRow(bim);
+  const url = item.ref && item.ref.url;
+  if (!row && url && /\/api\/bim\/parts\//.test(url) && fetcher) {
+    try { const r = await fetcher(url); if (r.ok) row = partToVendorRow(await r.json()); } catch (_) { /* not reachable: the catalogue */ }
+  }
+  if (!row) {
+    const all = catalog || await loadMasterCatalog();
+    row = (all || []).find(m => m.bimId === bim.id) || null;
+  }
+  if (!row) {
+    const ports = (bim.ports || []).reduce((n, p) => n + Math.max(1, Number(p.count) || 1), 0) || 24;
+    const conn = String(((bim.ports || [])[0] || {}).connector || '');
+    row = {
+      make: bim.manufacturer || bim.maker || '', model: bim.model || bim.id, portCount: ports,
+      rackUnits: `${bim.ru || (bim.physical && bim.physical.rack_units) || 1}U`,
+      type: /rj45|ethernet|cat/i.test(conn) ? 'Data' : /bnc/i.test(conn) ? 'Video' : conn ? 'Jack' : 'Panel',
+    };
+  }
+  return Object.assign({}, row, { bimId: bim.id });
+}

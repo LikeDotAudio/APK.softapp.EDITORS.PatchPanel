@@ -11,14 +11,12 @@ import {
   generatePrintableSheetHtml,
 } from './patchLabelGeometryEngine.js';
 import {
-  VENDORS,
   loadMasterCatalog,
-  loadVendorModels,
   catalogError,
-  searchModels,
-  findModel,
   modelToMechanicalPreset,
+  rowForLibraryItem,
 } from './patchPanelVendorCatalog.js';
+import { libraryButton, bimFields } from './bimLibrary.js';
 import { generateCadPanelDxf } from './cadDxfGenerator.js';
 import { downloadPanelDxf, openInCadLikeAudio } from './cadLikeAudioBridge.js';
 import { createPortTables, fillEndpointsFromThings } from './portTables.js';
@@ -212,10 +210,6 @@ export class PanelBuddyApp {
     this.btnShiftRight = document.getElementById('btn-shift-right');
 
     // Hardware Catalog Elements
-    this.selectHardwareVendor = document.getElementById('select-hardware-vendor');
-    this.selectHardwareModel = document.getElementById('select-hardware-model');
-    this.selectLabelVendor = document.getElementById('select-label-vendor');
-    this.selectLabelModel = document.getElementById('select-label-model');
 
     // Label Maker Studio Elements
     this.btnOpenLabelmaker = document.getElementById('btn-open-labelmaker');
@@ -595,24 +589,18 @@ export class PanelBuddyApp {
     }
   }
 
+  /* 📚 THE HARDWARE IS A BIM PART (ROAD-3572). The panel's hardware comes from the BIM
+     library's picker (bimLibrary.js, Ctrl+Shift+L) — no vendor/model lists of this editor's
+     own. The pick's ref is kept on the panel (bimId, bimRef) and saved with the block. */
   async setupHardwareCatalog() {
-    if (!this.selectHardwareVendor && !this.selectLabelVendor) return;
+    const slots = ['hardware-library-slot', 'label-library-slot'].map(id => document.getElementById(id)).filter(Boolean);
+    slots.forEach((slot, n) => slot.append(libraryButton(items => this.applyLibraryPart(items[0]), {
+      className: 'btn btn-secondary btn-sm', title: 'Choose this panel\'s hardware from the BIM library',
+      filter: { class: ['Patch Panel'] }, shortcut: n === 0,
+    })));
+    this.showHardwarePart();
 
-    const populateVendors = (sel, placeholder) => {
-      if (!sel) return;
-      sel.replaceChildren(new Option(placeholder, ''));
-      VENDORS.forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        sel.appendChild(opt);
-      });
-    };
-
-    populateVendors(this.selectHardwareVendor, '-- Choose Manufacturer (15) --');
-    populateVendors(this.selectLabelVendor, '-- Choose Manufacturer (15) --');
-
-    // Asynchronously preload master catalog in background
+    // the catalogue read: the panel geometry of a part the snapshot pick does not carry
     const preload = () => loadMasterCatalog().then(models => {
       this.masterCatalog = models;
       const fault = catalogError();
@@ -627,69 +615,27 @@ export class PanelBuddyApp {
       console.warn('Catalog index preload notice:', err);
     });
     preload();
+  }
 
-    const handleVendorChange = async (vendor, targetModelSelect, mirrorVendorSelect, mirrorModelSelect) => {
-      if (mirrorVendorSelect && mirrorVendorSelect.value !== vendor) {
-        mirrorVendorSelect.value = vendor;
-      }
+  /** A part picked from the library becomes this panel's hardware, with its BIM reference. */
+  async applyLibraryPart(item) {
+    if (!item) return;
+    const row = await rowForLibraryItem(item, { catalog: this.masterCatalog });
+    const { bimId, bimRef } = bimFields(item);
+    this.panel.bimId = bimId;
+    if (bimRef) this.panel.bimRef = bimRef;
+    this.panel.hardwareName = item.bim.name || `${row?.make || ''} ${row?.model || ''}`.trim();
+    if (row) this.applyHardwareModel(row);
+    else { this.render(); this.changed(); }
+    this.showHardwarePart();
+  }
 
-      if (!vendor) {
-        if (targetModelSelect) {
-          targetModelSelect.innerHTML = '<option value="">-- Select Vendor First --</option>';
-          targetModelSelect.disabled = true;
-        }
-        if (mirrorModelSelect) {
-          mirrorModelSelect.innerHTML = '<option value="">-- Select Vendor First --</option>';
-          mirrorModelSelect.disabled = true;
-        }
-        return;
-      }
-
-      const models = await loadVendorModels(vendor);
-      const renderOptions = (sel) => {
-        if (!sel) return;
-        sel.replaceChildren(new Option(`-- Choose ${vendor} Model (${models.length}) --`, ''));
-        models.forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = m.model;
-          opt.textContent = `${m.model} · ${m.portCount}P ${m.rackUnits} · ${m.type} (P: ${m.portPitchMm}mm / ${m.portPitchInches}″)`;
-          sel.appendChild(opt);
-        });
-        sel.disabled = false;
-      };
-
-      renderOptions(targetModelSelect);
-      renderOptions(mirrorModelSelect);
-    };
-
-    const handleModelChange = async (vendor, modelCode, mirrorModelSelect) => {
-      if (mirrorModelSelect && mirrorModelSelect.value !== modelCode) {
-        mirrorModelSelect.value = modelCode;
-      }
-      if (!modelCode) return;
-
-      const models = await loadVendorModels(vendor);
-      const model = findModel(models, modelCode);
-      if (model) {
-        this.applyHardwareModel(model);
-      }
-    };
-
-    this.selectHardwareVendor?.addEventListener('change', (e) => {
-      handleVendorChange(e.target.value, this.selectHardwareModel, this.selectLabelVendor, this.selectLabelModel);
-    });
-
-    this.selectHardwareModel?.addEventListener('change', (e) => {
-      handleModelChange(this.selectHardwareVendor.value, e.target.value, this.selectLabelModel);
-    });
-
-    this.selectLabelVendor?.addEventListener('change', (e) => {
-      handleVendorChange(e.target.value, this.selectLabelModel, this.selectHardwareVendor, this.selectHardwareModel);
-    });
-
-    this.selectLabelModel?.addEventListener('change', (e) => {
-      handleModelChange(this.selectLabelVendor.value, e.target.value, this.selectHardwareModel);
-    });
+  /** Name the panel's BIM part beside each 📚 Library button. */
+  showHardwarePart() {
+    for (const id of ['hardware-library-part', 'label-library-part']) {
+      const el = globalThis.document?.getElementById(id);
+      if (el) el.textContent = this.panel.bimId ? `${this.panel.hardwareName || this.panel.bimId} · ${this.panel.bimId}` : 'No BIM part chosen yet.';
+    }
   }
 
   applyHardwareModel(model) {
@@ -878,6 +824,10 @@ export class PanelBuddyApp {
     this.panel.portsPerRow = block.portsPerRow || (block.pairCount ? block.pairCount : this.panel.portsPerRow);
     this.panel.rackUnits = block.rackUnits || (block.pairCount ? 2 : this.panel.rackUnits);
     this.panel.formFactor = block.formFactor || this.panel.formFactor;
+    this.panel.bimId = block.bimId || '';
+    this.panel.bimRef = block.bimRef && block.bimRef.part ? block.bimRef : null;
+    this.panel.hardwareName = block.hardwareName || '';
+    this.showHardwarePart?.();
 
     if (Array.isArray(block.pairs) && block.pairs.length > 0) {
       this.tableMode = 'paired';
@@ -1103,6 +1053,9 @@ export class PanelBuddyApp {
       pairCount: this.panel.portsPerRow,
       pairs: this.getPairs(),
       ports: this.panel.ports,
+      // the hardware's BIM part and reference (ROAD-3572), when one was picked
+      ...(this.panel.bimId ? { bimId: this.panel.bimId, hardwareName: this.panel.hardwareName || '' } : {}),
+      ...(this.panel.bimRef ? { bimRef: this.panel.bimRef } : {}),
       timestamp: new Date().toISOString(),
     }));
   }
@@ -1212,7 +1165,9 @@ export class PanelBuddyApp {
 }
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('DOMContentLoaded', () => {
-    window.panelBuddyApp = new PanelBuddyApp();
-  });
+  /* vocabulary.js awaits its config at the top level, so this module can finish after
+     DOMContentLoaded has fired: start now when the document is already parsed. */
+  const start = () => { window.panelBuddyApp ||= new PanelBuddyApp(); };
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', start);
+  else start();
 }

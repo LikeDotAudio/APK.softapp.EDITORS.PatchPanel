@@ -439,28 +439,15 @@
         <input type="text" id="input-panel-room" class="input" value="MDF / RACK-01 · U14">
       </div>
 
-      <!-- Hardware Vendor & Model Library -->
+      <!-- 📚 The hardware is a BIM part (ROAD-3572): the BIM library's picker, no vendor/model lists here -->
       <div class="form-group" style="background: rgba(255,255,255,0.02); border: 1px solid var(--osc-border-default); border-radius: 4px; padding: 8px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
           <span style="font-size: 10px; font-weight: 700; color: var(--osc-accent-primary); text-transform: uppercase;">
-            📦 Hardware Model Library
+            📦 Panel Hardware
           </span>
-          <span style="font-size: 9px; color: var(--osc-text-muted);">2,174 Models</span>
+          <span id="hardware-library-slot"></span>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-          <div>
-            <label for="select-hardware-vendor" style="font-size: 10px;">Manufacturer / Vendor</label>
-            <select id="select-hardware-vendor" class="select" style="width: 100%; font-size: 11px;">
-              <option value="">-- Choose Manufacturer (15) --</option>
-            </select>
-          </div>
-          <div>
-            <label for="select-hardware-model" style="font-size: 10px;">Model / Series</label>
-            <select id="select-hardware-model" class="select" style="width: 100%; font-size: 11px;" disabled>
-              <option value="">-- Select Vendor First --</option>
-            </select>
-          </div>
-        </div>
+        <div id="hardware-library-part" style="font-size: 10px; color: var(--osc-text-muted);">No BIM part chosen yet.</div>
       </div>
 
       <!-- Hardware & Mechanical Label Definition (Main Editing Page) -->
@@ -624,28 +611,15 @@
       <div class="labelmaker-grid">
         <!-- Mechanical Geometry Sidebar -->
         <aside class="labelmaker-sidebar">
-          <!-- Verified Hardware Catalog Quick Picker -->
+          <!-- 📚 The hardware is a BIM part (ROAD-3572) -->
           <div class="form-group" style="background: rgba(244,144,44,0.06); border: 1px solid rgba(244,144,44,0.2); border-radius: 4px; padding: 8px; margin-bottom: 10px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
               <span style="font-size: 10px; font-weight: 700; color: var(--osc-accent-primary); text-transform: uppercase;">
-                🏛️ Verified Hardware Library
+                🏛️ Panel Hardware
               </span>
-              <span style="font-size: 9px; color: var(--osc-text-muted);">15 Vendors · 2,174 Specs</span>
+              <span id="label-library-slot"></span>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-              <div>
-                <label for="select-label-vendor" style="font-size: 10px;">Vendor</label>
-                <select id="select-label-vendor" class="select" style="width: 100%; font-size: 11px;">
-                  <option value="">-- Generic Preset / Choose Vendor --</option>
-                </select>
-              </div>
-              <div>
-                <label for="select-label-model" style="font-size: 10px;">Hardware Model</label>
-                <select id="select-label-model" class="select" style="width: 100%; font-size: 11px;" disabled>
-                  <option value="">-- Select Vendor First --</option>
-                </select>
-              </div>
-            </div>
+            <div id="label-library-part" style="font-size: 10px; color: var(--osc-text-muted);">No BIM part chosen yet.</div>
           </div>
 
           <div class="form-group">
