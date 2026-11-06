@@ -18,7 +18,7 @@ import {
 } from './patchPanelVendorCatalog.js';
 import { libraryButton, bimFields } from './bimLibrary.js';
 import { generateCadPanelDxf } from './cadDxfGenerator.js';
-import { downloadPanelDxf, openInCadLikeAudio } from './cadLikeAudioBridge.js';
+import { downloadPanelDxf, downloadPanelIfc, openInCadLikeAudio } from './cadLikeAudioBridge.js';
 import { createPortTables, fillEndpointsFromThings } from './portTables.js';
 import { panelToIfc, panelFromIfc, schemaOf } from './panelIfc.js';
 
@@ -69,7 +69,7 @@ export class PanelBuddyApp {
         { name: 'IFC twin', to: 'panel_<name>.ifc (IFC4X3_ADD2) with the .json when standalone: the panel an IfcDistributionBoard DISTRIBUTIONFRAME (a wall plate an IfcOutlet), each port an IfcDistributionPort, each endpoint joined by IfcRelConnectsPorts', kind: 'file' },
         { name: 'Live edits', to: 'the CAD after every change (blockChanged)', kind: 'cad' },
         { name: 'Schedule', to: '<name>_schedule.csv (paired or linear, as the table shows)', kind: 'file' },
-        { name: 'Drawing', to: '<name>_cad_<view>.svg and <name>_fabrication.dxf', kind: 'file' },
+        { name: 'Drawing', to: '<name>_cad_<view>.svg, <name>_fabrication.dxf (every object of the .ifc twin on its hidden APK_IFC layer, apk-ifc-dxf/1) and <name>_fabrication.ifc (Export IFC)', kind: 'file' },
         { name: 'Open in CAD', to: 'a new CAD window handed the DXF over host@1 (downloads the DXF if pop-ups are blocked)', kind: 'cad' },
         { name: 'Label strip', to: '1:1 print sheet (pop-up), label strip .svg, labels .csv', kind: 'file' },
       ],
@@ -198,6 +198,7 @@ export class PanelBuddyApp {
     this.btnExportCsv = document.getElementById('btn-export-csv');
     this.btnExportSvg = document.getElementById('btn-export-svg');
     this.btnExportDxf = document.getElementById('btn-export-dxf');
+    this.btnExportIfc = document.getElementById('btn-export-ifc');
     this.btnOpenCad = document.getElementById('btn-open-cad');
     this.btnPrint = document.getElementById('btn-print');
 
@@ -462,6 +463,7 @@ export class PanelBuddyApp {
     this.btnExportCsv?.addEventListener('click', () => this.exportCsv());
     this.btnExportSvg?.addEventListener('click', () => this.exportCadSvg());
     this.btnExportDxf?.addEventListener('click', () => this.exportCadDxf());
+    this.btnExportIfc?.addEventListener('click', () => this.exportCadIfc());
     this.btnOpenCad?.addEventListener('click', () => this.openInCad());
     this.btnPrint?.addEventListener('click', () => window.print());
 
@@ -1152,12 +1154,22 @@ export class PanelBuddyApp {
     URL.revokeObjectURL(url);
   }
 
+  /** The panel's .ifc twin (the file Save Model writes), which the DXF also carries on its hidden APK_IFC layer. */
+  panelIfc() {
+    return panelToIfc(this.toBlock(), { name: this.blockMeta().filename });
+  }
+
   exportCadDxf() {
-    downloadPanelDxf(this.panel);
+    downloadPanelDxf(this.panel, null, window, this.panelIfc());
+  }
+
+  /** Export IFC: beside Export DXF, the same panel as IFC4X3_ADD2 (ROAD-3598). */
+  exportCadIfc() {
+    downloadPanelIfc(this.panel, this.panelIfc());
   }
 
   openInCad() {
-    openInCadLikeAudio(this.panel, { onStatus: (text, state) => this.sayStatus(text, state) });
+    openInCadLikeAudio(this.panel, { onStatus: (text, state) => this.sayStatus(text, state), ifc: this.panelIfc() });
   }
 
   /** Open a panel .json or an IFC model (.ifc; an ISO 10303-21 header decides for any other name). */

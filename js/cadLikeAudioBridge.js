@@ -15,11 +15,39 @@ export function dxfFileName(panel, customName = null) {
   return `${String(rawName).replace(/[^a-zA-Z0-9_-]/g, '_')}_fabrication.dxf`;
 }
 
+export function ifcFileName(panel, customName = null) {
+  return dxfFileName(panel, customName).replace(/\.dxf$/, '.ifc');
+}
+
+function download(win, text, fileName, type) {
+  const doc = win.document;
+  const blob = new win.Blob([text], { type });
+  const url = win.URL.createObjectURL(blob);
+  const a = doc.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  doc.body.appendChild(a);
+  a.click();
+  doc.body.removeChild(a);
+  win.URL.revokeObjectURL(url);
+}
+
 /**
- * Downloads the panel drawing as a standard AutoCAD R2000 DXF file
+ * The panel's model as IFC4X3_ADD2 (panelToIfc's text), beside the DXF: every export that
+ * offers .dxf offers .ifc (ROAD-3598).
  */
-export function downloadPanelDxf(panel, customName = null, win = window) {
-  const dxfStr = generateCadPanelDxf(panel);
+export function downloadPanelIfc(panel, ifcText, customName = null, win = window) {
+  const fileName = ifcFileName(panel, customName);
+  download(win, ifcText, fileName, 'application/x-step');
+  return { fileName, size: ifcText.length };
+}
+
+/**
+ * Downloads the panel drawing as a standard AutoCAD R2000 DXF file; with `ifc` (the panel's
+ * .ifc text) its objects ride on the hidden APK_IFC layer (cadDxfGenerator.js).
+ */
+export function downloadPanelDxf(panel, customName = null, win = window, ifc = null) {
+  const dxfStr = generateCadPanelDxf(panel, ifc ? { ifc } : {});
   const fileName = dxfFileName(panel, customName);
   const doc = win.document;
   const blob = new win.Blob([dxfStr], { type: 'application/dxf;charset=utf-8' });
@@ -42,8 +70,8 @@ export function downloadPanelDxf(panel, customName = null, win = window) {
  * `ready` — from that window, at our own origin — with ONE `floorplan` { file }.
  * No timers, no resends, no '*': a CAD that never says ready gets nothing.
  */
-export function openInCadLikeAudio(panel, { win = window, onStatus = () => {} } = {}) {
-  const dxfStr = generateCadPanelDxf(panel);
+export function openInCadLikeAudio(panel, { win = window, onStatus = () => {}, ifc = null } = {}) {
+  const dxfStr = generateCadPanelDxf(panel, ifc ? { ifc } : {});
   const fileName = dxfFileName(panel);
   // Relative to this editor: ../EDITORS.CAD.Like.audio/dist/index.html#/drawing?host=panel
   const cadUrl = new URL('../EDITORS.CAD.Like.audio/dist/index.html#/drawing?host=panel', win.location.href).href;

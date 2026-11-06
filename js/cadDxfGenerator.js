@@ -2,6 +2,11 @@
 // MIT Licence. Free, for everyone, for ever. Full text in LICENSE at the root.
 // Authentic AutoCAD R2000 (AC1015) DXF Emitter for 19-Inch EIA Rack Panels & Patchbays
 // Fully compatible with EDITORS.CAD.Like.audio, LibreCAD, Fusion 360, and CNC fabrication tools
+// With the panel's .ifc twin (options.ifc, panelIfc.js panelToIfc) every object of it also rides on
+// the hidden layer APK_IFC (frozen, off, never plotted): contracts/src/ifc/dxf.ts, apk-ifc-dxf/1
+// (ROAD-3598), vendored as vendor/apk-contracts/apk-ifc-dxf.js by scripts/vendor-ifc.mjs.
+
+import { addIfcToDxf, ifcDxfBlobs } from '../vendor/apk-contracts/apk-ifc-dxf.js';
 
 const pair = (code, val) => `${code}\n${val}\n`;
 
@@ -261,7 +266,8 @@ export class DxfWriter {
 }
 
 /**
- * Generates an AutoCAD R2000 DXF for standard 19-inch rack panel fabrication
+ * Generates an AutoCAD R2000 DXF for standard 19-inch rack panel fabrication.
+ * options.ifc: the panel's .ifc text (or apk-ifc-dxf blobs) to carry on the hidden APK_IFC layer.
  */
 export function generateCadPanelDxf(panel, options = {}) {
   const ru = Math.max(1, parseInt(panel.rackUnits || 1, 10));
@@ -397,5 +403,7 @@ export function generateCadPanelDxf(panel, options = {}) {
     }
   });
 
-  return dxf.toDxfString();
+  const text = dxf.toDxfString();
+  if (!options.ifc) return text;
+  return addIfcToDxf(text, typeof options.ifc === 'string' ? ifcDxfBlobs(options.ifc) : options.ifc);
 }
