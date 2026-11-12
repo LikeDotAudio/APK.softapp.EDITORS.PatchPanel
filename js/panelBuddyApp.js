@@ -2,7 +2,7 @@
 // MIT Licence. Free, for everyone, for ever. Full text in LICENSE at the root.
 // Authentic 19-Inch EIA Rack Panel CAD Builder with True Vector Connectors
 
-import { CAD_CONNECTOR_CATALOG, getConnectorMeta } from './cadConnectorSymbols.js';
+import { CAD_CONNECTOR_CATALOG, getConnectorMeta, savedConnector } from './cadConnectorSymbols.js';
 import { renderCadPanelSvg } from './cadPanelVisualizer.js';
 import { LABEL_MECHANICAL_PRESETS } from './patchLabelGeometryEngine.js';
 import { modelToMechanicalPreset } from './patchPanelVendorCatalog.js';
@@ -307,7 +307,7 @@ export class PanelBuddyApp {
           label: p.topLabel || `CH ${p.ch || idx + 1}`,
           endpoint: p.topEndpoint || '',
           signal: p.topSignal || 'Analog Audio',
-          connector: p.connector || 'TT-Bantam',
+          connector: savedConnector(p.connector) || 'TT-Bantam',
           normalling: p.normalling || p.normalMode || 'half'
         });
       });
@@ -318,7 +318,7 @@ export class PanelBuddyApp {
           label: p.bottomLabel || `CH ${p.ch || idx + 1} (IN)`,
           endpoint: p.bottomEndpoint || '',
           signal: p.bottomSignal || 'Analog Audio',
-          connector: p.connector || 'TT-Bantam',
+          connector: savedConnector(p.connector) || 'TT-Bantam',
           normalling: p.normalling || p.normalMode || 'half'
         });
       });
@@ -328,7 +328,7 @@ export class PanelBuddyApp {
         label: p.label || p.portLabel || `P${idx + 1}`,
         endpoint: p.endpoint || p.destination || p.outputTo || '',
         signal: p.signal || 'Analog Audio',
-        connector: p.connector || 'XLR-F',
+        connector: savedConnector(p.connector) || 'XLR-F',
         normalling: p.normalling || p.normalMode || 'half',
       }));
     }
@@ -386,8 +386,11 @@ export class PanelBuddyApp {
         try {
           const payload = JSON.parse(e.dataTransfer.getData('application/json'));
           if (payload.type === 'CONNECTOR_PALETTE_ITEM') {
-            // Drop connector from palette onto port
-            this.panel.ports[targetIdx].connector = payload.connectorId;
+            // Drop connector from palette onto port: the port keeps the symbol's label, as
+            // PanelBuddy's drop, applyConnectorToSelected and the table do (ROAD-3783)
+            const meta = getConnectorMeta(payload.connectorId);
+            if (!meta) return;
+            this.panel.ports[targetIdx].connector = meta.label;
             this.selectPort(targetIdx);
             this.render();
             this.changed();

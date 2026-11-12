@@ -447,6 +447,16 @@ export const CAD_CONNECTOR_SYMBOLS_SVG = `
 
 export const CAD_SYMBOLS_SVG_SHEET = CAD_CONNECTOR_SYMBOLS_SVG;
 
+/* What a saved port's connector is: the symbol's label, the word every other
+   reader of the panel takes (the linear table's select, the IFC port words, the
+   CSV). PatchPanel saved a dropped symbol's id until ROAD-3783, so a value that is
+   exactly a symbol id reads back as that symbol's label; any other word (a label,
+   an alias like XLR-F, a BIM part's own word) is kept as it was. */
+export function savedConnector(value) {
+  const sym = CAD_CONNECTOR_CATALOG.find(c => c.id === value);
+  return sym ? sym.label : value;
+}
+
 export function getConnectorMeta(id) {
   // A symbol's own id or label, then any spelling the catalogue (or this app's aliases) knows.
   const own = CAD_CONNECTOR_CATALOG.find(c => c.id === id || c.label === id);
