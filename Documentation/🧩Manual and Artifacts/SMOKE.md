@@ -4,14 +4,14 @@ Is `EDITORS.PatchPanel` deployed? Written by `.apk.scripts/smoke.py` from the mo
 
 ← [Wiki home](../README.md)
 
-**✅ PASS** — 3/3 checks, since 2026-11-04 21:31 EST
+**❌ FAIL** — 2/3 checks, since 2026-11-12 00:16 EST
 
 | Check | Target | Result | Detail |
 |---|---|---|---|
-| pushed | [APK.softapp.EDITORS.PatchPanel](https://github.com/LikeDotAudio/APK.softapp.EDITORS.PatchPanel.git) | ✅ | HEAD is on origin |
+| pushed | [APK.softapp.EDITORS.PatchPanel](https://github.com/LikeDotAudio/APK.softapp.EDITORS.PatchPanel.git) | ❌ | 1 commit(s) not pushed |
 | web | [index.html](https://apk.audio/APK%3ASoftapps/EDITORS/EDITORS.PatchPanel/index.html) | ✅ | HTTP 200 |
 | app | `OS/Patch Panel` → `PODS/POD.THIN/Softapps/EDITORS/EDITORS.PatchPanel/index.html` | ✅ | present |
 
 Re-run: `python3 .apk.scripts/smoke.py PODS/POD.THIN/Softapps/EDITORS/EDITORS.PatchPanel`
 
-<!-- smoke:sig a92f91a8bf89 since 2026-11-04 21:31 EST -->
+<!-- smoke:sig 19b194fc9b37 since 2026-11-12 00:16 EST -->

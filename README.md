@@ -9,5 +9,5 @@ from them (`/api/bim/parts?class=Patch Panel&full=1` in the browser, the library
 Tests: `node --test tests/*.test.mjs`.
 
 <!-- wiki:smoke -->
-**Smoke test** — ✅ PASS 3/3 since 2026-11-04 21:31 EST — [results](Documentation/%F0%9F%A7%A9Manual%20and%20Artifacts/SMOKE.md)
+**Smoke test** — ❌ FAIL 2/3 since 2026-11-12 00:16 EST — [results](Documentation/%F0%9F%A7%A9Manual%20and%20Artifacts/SMOKE.md)
 <!-- /wiki:smoke -->
